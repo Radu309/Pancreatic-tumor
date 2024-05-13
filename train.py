@@ -1,245 +1,173 @@
-import argparse
-import logging
-import os
-import random
+"""
+This code is to build and train 2D U-Net
+"""
+import numpy as np
 import sys
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torchvision.transforms as transforms
-import torchvision.transforms.functional as TF
-from pathlib import Path
-from torch import optim
-from torch.utils.data import DataLoader, random_split
-from tqdm import tqdm
+import subprocess
+import argparse
+import os
 
-import wandb
-from evaluate import evaluate
-from unet import UNet
-from utils.data_loading import BasicDataset, CarvanaDataset
-from utils.dice_score import dice_loss
+from keras.models import Model
+from keras.layers import Input, Activation, concatenate, Conv2D, MaxPooling2D, Conv2DTranspose, ZeroPadding2D, add
+from keras.optimizers import Adam, SGD
+from keras.callbacks import ModelCheckpoint, CSVLogger
+from keras import backend as K
+from keras import losses
 
-dir_img = Path('./data/imgs/')
-dir_mask = Path('./data/masks/')
-dir_checkpoint = Path('./checkpoints/')
+import tensorflow as tf
+import matplotlib.pyplot as plt
+import pandas as pd
+import csv
 
+from utils import *
+from data import load_train_data
 
-def train_model(
-        model,
-        device,
-        epochs: int = 5,
-        batch_size: int = 1,
-        learning_rate: float = 1e-5,
-        val_percent: float = 0.1,
-        save_checkpoint: bool = True,
-        img_scale: float = 0.5,
-        amp: bool = False,
-        weight_decay: float = 1e-8,
-        momentum: float = 0.999,
-        gradient_clipping: float = 1.0,
-):
-    # 1. Create dataset
-    try:
-        dataset = CarvanaDataset(dir_img, dir_mask, img_scale)
-    except (AssertionError, RuntimeError, IndexError):
-        dataset = BasicDataset(dir_img, dir_mask, img_scale)
+K.set_image_data_format('channels_last')  # Tensorflow dimension ordering
 
-    # 2. Split into train / validation partitions
-    n_val = int(len(dataset) * val_percent)
-    n_train = len(dataset) - n_val
-    train_set, val_set = random_split(dataset, [n_train, n_val], generator=torch.Generator().manual_seed(0))
-
-    # 3. Create data loaders
-    loader_args = dict(batch_size=batch_size, num_workers=os.cpu_count(), pin_memory=True)
-    train_loader = DataLoader(train_set, shuffle=True, **loader_args)
-    val_loader = DataLoader(val_set, shuffle=False, drop_last=True, **loader_args)
-
-    # (Initialize logging)
-    experiment = wandb.init(project='U-Net', id='02jzdaup', resume='must', anonymous='must')
-
-    experiment.config.update(
-        dict(epochs=epochs, batch_size=batch_size, learning_rate=learning_rate,
-             val_percent=val_percent, save_checkpoint=save_checkpoint, img_scale=img_scale, amp=amp)
-    )
-
-    logging.info(f'''Starting training:
-        Epochs:          {epochs}
-        Batch size:      {batch_size}
-        Learning rate:   {learning_rate}
-        Training size:   {n_train}
-        Validation size: {n_val}
-        Checkpoints:     {save_checkpoint}
-        Device:          {device.type}
-        Images scaling:  {img_scale}
-        Mixed Precision: {amp}
-    ''')
-
-    # 4. Set up the optimizer, the loss, the learning rate scheduler and the loss scaling for AMP
-    optimizer = optim.RMSprop(model.parameters(),
-                              lr=learning_rate, weight_decay=weight_decay, momentum=momentum, foreach=True)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=5)  # goal: maximize Dice score
-    grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
-    criterion = nn.CrossEntropyLoss() if model.n_classes > 1 else nn.BCEWithLogitsLoss()
-    global_step = 0
-
-    # 5. Begin training
-    for epoch in range(1, epochs + 1):
-        model.train()
-        epoch_loss = 0
-        with tqdm(total=n_train, desc=f'Epoch {epoch}/{epochs}', unit='img') as pbar:
-            for batch in train_loader:
-                images, true_masks = batch['image'], batch['mask']
-
-                assert images.shape[1] == model.n_channels, \
-                    f'Network has been defined with {model.n_channels} input channels, ' \
-                    f'but loaded images have {images.shape[1]} channels. Please check that ' \
-                    'the images are loaded correctly.'
-
-                images = images.to(device=device, dtype=torch.float32, memory_format=torch.channels_last)
-                true_masks = true_masks.to(device=device, dtype=torch.long)
-
-                with torch.autocast(device.type if device.type != 'mps' else 'cpu', enabled=amp):
-                    masks_pred = model(images)
-                    if model.n_classes == 1:
-                        loss = criterion(masks_pred.squeeze(1), true_masks.float())
-                        loss += dice_loss(F.sigmoid(masks_pred.squeeze(1)), true_masks.float(), multiclass=False)
-                    else:
-                        loss = criterion(masks_pred, true_masks)
-                        loss += dice_loss(
-                            F.softmax(masks_pred, dim=1).float(),
-                            F.one_hot(true_masks, model.n_classes).permute(0, 3, 1, 2).float(),
-                            multiclass=True
-                        )
-
-                optimizer.zero_grad(set_to_none=True)
-                grad_scaler.scale(loss).backward()
-                grad_scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
-                grad_scaler.step(optimizer)
-                grad_scaler.update()
-
-                pbar.update(images.shape[0])
-                global_step += 1
-                epoch_loss += loss.item()
-                experiment.log({
-                    'train loss': loss.item(),
-                    'step': global_step,
-                    'epoch': epoch
-                })
-                pbar.set_postfix(**{'loss (batch)': loss.item()})
-
-                # Evaluation round
-                division_step = (n_train // (5 * batch_size))
-                if division_step > 0:
-                    if global_step % division_step == 0:
-                        histograms = {}
-                        for tag, value in model.named_parameters():
-                            tag = tag.replace('/', '.')
-                            if not (torch.isinf(value) | torch.isnan(value)).any():
-                                histograms['Weights/' + tag] = wandb.Histogram(value.data.cpu())
-                            if not (torch.isinf(value.grad) | torch.isnan(value.grad)).any():
-                                histograms['Gradients/' + tag] = wandb.Histogram(value.grad.data.cpu())
-
-                        val_score = evaluate(model, val_loader, device, amp)
-                        scheduler.step(val_score)
-
-                        logging.info('Validation Dice score: {}'.format(val_score))
-                        try:
-                            experiment.log({
-                                'learning rate': optimizer.param_groups[0]['lr'],
-                                'validation Dice': val_score,
-                                'images': wandb.Image(images[0].cpu()),
-                                'masks': {
-                                    'true': wandb.Image(true_masks[0].float().cpu()),
-                                    'pred': wandb.Image(masks_pred.argmax(dim=1)[0].float().cpu()),
-                                },
-                                'step': global_step,
-                                'epoch': epoch,
-                                **histograms
-                            })
-                        except:
-                            pass
-
-        if save_checkpoint:
-            Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
-            state_dict = model.state_dict()
-            state_dict['mask_values'] = dataset.mask_values
-            torch.save(state_dict, str(dir_checkpoint / 'checkpoint_epoch{}.pth'.format(epoch)))
-            logging.info(f'Checkpoint {epoch} saved!')
+# ----- paths setting -----
+data_path = sys.argv[1] + "/"
+model_path = data_path + "models/"
+log_path = data_path + "logs/"
 
 
-def get_args():
-    parser = argparse.ArgumentParser(description='Train the UNet on images and target masks')
-    parser.add_argument('--epochs', '-e', metavar='E', type=int, default=5, help='Number of epochs')
-    parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=1, help='Batch size')
-    parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=1e-5,
-                        help='Learning rate', dest='lr')
-    parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
-    parser.add_argument('--scale', '-s', type=float, default=0.5, help='Downscaling factor of the images')
-    parser.add_argument('--validation', '-v', dest='val', type=float, default=10.0,
-                        help='Percent of the data that is used as validation (0-100)')
-    parser.add_argument('--amp', action='store_true', default=False, help='Use mixed precision')
-    parser.add_argument('--bilinear', action='store_true', default=False, help='Use bilinear upsampling')
-    parser.add_argument('--classes', '-c', type=int, default=2, help='Number of classes')
-
-    return parser.parse_args()
+# ----- params for training and testing -----
+batch_size = 1
+cur_fold = sys.argv[2]
+plane = sys.argv[3]
+epoch = int(sys.argv[4])
+init_lr = float(sys.argv[5])
 
 
-if __name__ == '__main__':
-    args = get_args()
+# ----- Dice Coefficient and cost function for training -----
+smooth = 1.
 
-    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    logging.info(f'Using device {device}')
+def dice_coef(y_true, y_pred):
+    y_true_f = K.flatten(y_true)
+    y_pred_f = K.flatten(y_pred)
+    intersection = K.sum(y_true_f * y_pred_f)
+    return (2.0 * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
 
-    # Change here to adapt to your data
-    # n_channels=3 for RGB images
-    # n_classes is the number of probabilities you want to get per pixel
-    model = UNet(n_channels=3, n_classes=args.classes, bilinear=args.bilinear)
-    model = model.to(memory_format=torch.channels_last)
+def dice_coef_loss(y_true, y_pred):
+    return  -dice_coef(y_true, y_pred)
 
-    logging.info(f'Network:\n'
-                 f'\t{model.n_channels} input channels\n'
-                 f'\t{model.n_classes} output channels (classes)\n'
-                 f'\t{"Bilinear" if model.bilinear else "Transposed conv"} upscaling')
 
-    if args.load:
-        checkpoint_path = dir_checkpoint / f'checkpoint_epoch{args.load}.pth'
-        state_dict = torch.load(checkpoint_path, map_location=device)
-        del state_dict['mask_values']
-        model.load_state_dict(state_dict)
-        logging.info(f'Model loaded from {checkpoint_path}')
+def get_unet(input_shape, flt=64, pool_size=(2, 2), init_lr=1.0e-5):
+    """build and compile Neural Network"""
 
-        # state_dict = torch.load(args.load, map_location=device)
-        # del state_dict['mask_values']
-        # model.load_state_dict(state_dict)
-        # logging.info(f'Model loaded from {args.load}')
+    print("start building NN")
+    inputs = Input(input_shape)
 
-    model.to(device=device)
-    try:
-        train_model(
-            model=model,
-            epochs=args.epochs,
-            batch_size=args.batch_size,
-            learning_rate=args.lr,
-            device=device,
-            img_scale=args.scale,
-            val_percent=args.val / 100,
-            amp=args.amp
-        )
-    except torch.cuda.OutOfMemoryError:
-        logging.error('Detected OutOfMemoryError! '
-                      'Enabling checkpointing to reduce memory usage, but this slows down training. '
-                      'Consider enabling AMP (--amp) for fast and memory efficient training')
-        torch.cuda.empty_cache()
-        model.use_checkpointing()
-        train_model(
-            model=model,
-            epochs=args.epochs,
-            batch_size=args.batch_size,
-            learning_rate=args.lr,
-            device=device,
-            img_scale=args.scale,
-            val_percent=args.val / 100,
-            amp=args.amp
-        )
+    conv1 = Conv2D(flt, (3, 3), activation='relu', padding='same')(inputs)
+    conv1 = Conv2D(flt, (3, 3), activation='relu', padding='same')(conv1)
+    pool1 = MaxPooling2D(pool_size=pool_size)(conv1)
+
+    conv2 = Conv2D(flt*2, (3, 3), activation='relu', padding='same')(pool1)
+    conv2 = Conv2D(flt*2, (3, 3), activation='relu', padding='same')(conv2)
+    pool2 = MaxPooling2D(pool_size=pool_size)(conv2)
+
+    conv3 = Conv2D(flt*4, (3, 3), activation='relu', padding='same')(pool2)
+    conv3 = Conv2D(flt*4, (3, 3), activation='relu', padding='same')(conv3)
+    pool3 = MaxPooling2D(pool_size=pool_size)(conv3)
+
+    conv4 = Conv2D(flt*8, (3, 3), activation='relu', padding='same')(pool3)
+    conv4 = Conv2D(flt*8, (3, 3), activation='relu', padding='same')(conv4)
+    pool4 = MaxPooling2D(pool_size=pool_size)(conv4)
+
+    conv5 = Conv2D(flt*16, (3, 3), activation='relu', padding='same')(pool4)
+    conv5 = Conv2D(flt*8, (3, 3), activation='relu', padding='same')(conv5)
+
+    up6 = concatenate([Conv2DTranspose(flt*8, (2, 2), strides=(2, 2), padding='same')(conv5), conv4], axis=3)
+    conv6 = Conv2D(flt*8, (3, 3), activation='relu', padding='same')(up6)
+    conv6 = Conv2D(flt*4, (3, 3), activation='relu', padding='same')(conv6)
+
+    up7 = concatenate([Conv2DTranspose(flt*4, (2, 2), strides=(2, 2), padding='same')(conv6), conv3], axis=3)
+    conv7 = Conv2D(flt*4, (3, 3), activation='relu', padding='same')(up7)
+    conv7 = Conv2D(flt*2, (3, 3), activation='relu', padding='same')(conv7)
+
+    up8 = concatenate([Conv2DTranspose(flt*2, (2, 2), strides=(2, 2), padding='same')(conv7), conv2], axis=3)
+    conv8 = Conv2D(flt*2, (3, 3), activation='relu', padding='same')(up8)
+    conv8 = Conv2D(flt, (3, 3), activation='relu', padding='same')(conv8)
+
+    up9 = concatenate([Conv2DTranspose(flt, (2, 2), strides=(2, 2), padding='same')(conv8), conv1], axis=3)
+    conv9 = Conv2D(flt, (3, 3), activation='relu', padding='same')(up9)
+    conv9 = Conv2D(flt, (3, 3), activation='relu', padding='same')(conv9)
+
+    conv10 = Conv2D(1, (1, 1), activation='sigmoid')(conv9)
+
+    model = Model(inputs=[inputs], outputs=[conv10])
+
+    model.compile(optimizer=Adam(lr=init_lr), loss=dice_coef_loss, metrics=[dice_coef])
+
+    return model
+
+
+def train(fold, plane, batch_size, nb_epoch, init_lr):
+    """
+    train an Unet model with data from load_train_data()
+
+    Parameters
+    ----------
+    fold : string
+        which fold is experimenting in 4-fold. It should be one of 0/1/2/3
+
+    plane : char
+        which plane is experimenting. It is from 'X'/'Y'/'Z'
+
+    batch_size : int
+        size of mini-batch
+
+    nb_epoch : int
+        number of epochs to train NN
+
+    init_lr : float
+        initial learning rate
+    """
+
+    print("number of epoch: ", nb_epoch)
+    print("learning rate: ", init_lr)
+
+    # --------------------- load and preprocess training data -----------------
+    print('-'*80)
+    print('         Loading and preprocessing train data...')
+    print('-'*80)
+
+    imgs_train, imgs_mask_train = load_train_data(fold, plane)
+
+    imgs_row = imgs_train.shape[1]
+    imgs_col = imgs_train.shape[2]
+
+    imgs_train = preprocess(imgs_train)
+    imgs_mask_train = preprocess(imgs_mask_train)
+
+    imgs_train = imgs_train.astype('float32')
+    imgs_mask_train = imgs_mask_train.astype('float32')
+
+    # ---------------------- Create, compile, and train model ------------------------
+    print('-'*80)
+    print('		Creating and compiling model...')
+    print('-'*80)
+
+    model = get_unet((imgs_row, imgs_col), init_lr=init_lr)
+    print(model.summary())
+
+    print('-'*80)
+    print('		Fitting model...')
+    print('-'*80)
+
+    ver = 'unet_fd%s_%s_ep%s_lr%s.csv'%(cur_fold, plane, epoch, init_lr)
+    csv_logger = CSVLogger(log_path + ver)
+    model_checkpoint = ModelCheckpoint(model_path + ver + ".h5",
+                                       monitor='loss',
+                                       save_best_only=False,
+                                       period=10)
+
+    history = model.fit(imgs_train, imgs_mask_train,
+                        batch_size=batch_size, epochs=nb_epoch, verbose=1, shuffle=True,
+                        callbacks=[model_checkpoint, csv_logger])
+
+
+if __name__ == "__main__":
+
+    train(cur_fold, plane, batch_size, epoch, init_lr)
+
+    print("training done")
