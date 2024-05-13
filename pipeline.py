@@ -1,4 +1,4 @@
-import os
+import sys
 import subprocess
 
 # Parameters
@@ -50,18 +50,29 @@ test_cmd = [
     str(ZMAX), str(YMAX), str(XMAX), str(HIGH_RANGE), str(LOW_RANGE), str(MARGIN), str(vis)
 ]
 
-# Run commands
-print("Running data preprocessor...")
-subprocess.run(convert_cmd)
+# Select which command to run based on command line arguments
+if len(sys.argv) != 2:
+    print("Usage: python pipeline.py [command]")
+    sys.exit(1)
 
-print("Running slice.py...")
-subprocess.run(slice_cmd)
+command_to_run = sys.argv[1]
 
-print("Running data.py...")
-subprocess.run(data_cmd)
-
-print("Running train.py...")
-subprocess.run(train_cmd)
-
-print("Running testvis.py...")
-subprocess.run(test_cmd)
+# Run selected command
+if command_to_run == "convert":
+    print("Running data preprocessor...")
+    subprocess.run(convert_cmd)
+elif command_to_run == "slice":
+    print("Running slice.py...")
+    subprocess.run(slice_cmd)
+elif command_to_run == "data":
+    print("Running data.py...")
+    subprocess.run(data_cmd)
+elif command_to_run == "train":
+    print("Running train.py...")
+    subprocess.run(train_cmd)
+elif command_to_run == "test":
+    print("Running testvis.py...")
+    subprocess.run(test_cmd)
+else:
+    print("Invalid command:", command_to_run)
+    print("Available commands: convert, slice, data, train, test")
