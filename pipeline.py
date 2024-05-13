@@ -21,7 +21,7 @@ python_cmd = "python"
 
 # Convert masks and images to npy
 convert_cmd = [
-    python_cmd, "convert_masks_and_images.py"
+    python_cmd, "convert_to_numpy.py"
 ]
 
 # Slice the 3D volume to 2D slices

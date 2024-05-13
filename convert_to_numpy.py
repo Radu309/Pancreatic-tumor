@@ -7,10 +7,10 @@ import pydicom
 W, H = 512, 512
 
 ct_masks = 'data/Pancreas_Segmentation/CT_Masks'
-npy_masks = 'data/Pancreas_Segmentation/NPY_Maskss'
+npy_masks = 'data/Pancreas_Segmentation/NPY_Masks'
 
 ct_images = 'data/Pancreas_Segmentation/CT_Images'
-npy_images = 'data/Pancreas_Segmentation/NPY_Imagess'
+npy_images = 'data/Pancreas_Segmentation/NPY_Images'
 
 
 def convert_masks_and_images():

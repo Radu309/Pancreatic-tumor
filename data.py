@@ -111,18 +111,17 @@ def load_test_data(current_fold, plane):
 
 if __name__ == '__main__':
 
-    data_path = sys.argv[1]
-    current_fold = int(sys.argv[2])
-    plane = sys.argv[3]
+    current_fold = int(sys.argv[1])
+    plane = sys.argv[2]
 
     # dim of each case (after padding zeors to max gt bounding box)
-    ZMAX = int(sys.argv[4])
-    YMAX = int(sys.argv[5])
-    XMAX = int(sys.argv[6])
+    ZMAX = int(sys.argv[3])
+    YMAX = int(sys.argv[4])
+    XMAX = int(sys.argv[5])
 
-    margin = int(sys.argv[7])
-    organ_ID = int(sys.argv[8])
-    low_range = int(sys.argv[9])
-    high_range = int(sys.argv[10])
+    margin = int(sys.argv[6])
+    organ_ID = int(sys.argv[7])
+    low_range = int(sys.argv[8])
+    high_range = int(sys.argv[9])
 
     create_train_data(current_fold, plane)
