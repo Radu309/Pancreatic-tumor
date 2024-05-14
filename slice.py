@@ -1,8 +1,4 @@
-import numpy as np
-import os
-import sys
 import time
-import math
 from utils import *
 
 
@@ -167,8 +163,9 @@ class DataPreprocessor:
 
 if __name__ == '__main__':
     # for more details, check the pipeline file
-    organ_number = int(sys.argv[1])
-    folds = int(sys.argv[2])
+    # first argv for utils file
+    organ_number = int(sys.argv[2])
+    folds = int(sys.argv[3])
     low_range = int(sys.argv[3])
     high_range = int(sys.argv[4])
 

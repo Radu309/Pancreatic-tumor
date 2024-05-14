@@ -1,6 +1,8 @@
 import sys
 import subprocess
 
+DATADIR_TRAIN = "data/Pancreas_Segmentation/train"
+
 # Parameters
 cur_fold = 0
 FOLDS = 4
@@ -27,20 +29,20 @@ convert_cmd = [
 # Slice the 3D volume to 2D slices
 slice_cmd = [
     python_cmd, "slice.py",
-    str(ORGAN_NUMBER), str(FOLDS), str(LOW_RANGE), str(HIGH_RANGE)
+    str(DATADIR_TRAIN), str(ORGAN_NUMBER), str(FOLDS), str(LOW_RANGE), str(HIGH_RANGE)
 ]
 
 # Create data for training
 data_cmd = [
     python_cmd, "data.py",
-    str(cur_fold), "Z", str(ZMAX), str(YMAX), str(XMAX), str(MARGIN),
+    str(DATADIR_TRAIN), str(cur_fold), "Z", str(ZMAX), str(YMAX), str(XMAX), str(MARGIN),
     str(ORGAN_NUMBER), str(LOW_RANGE), str(HIGH_RANGE)
 ]
 
 # Train the model
 train_cmd = [
     python_cmd, "train.py",
-    str(cur_fold), "Z", str(epoch), str(init_lr)
+    str(DATADIR_TRAIN), str(cur_fold), "Z", str(epoch), str(init_lr)
 ]
 
 # Test the model

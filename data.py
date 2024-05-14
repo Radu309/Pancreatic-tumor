@@ -21,7 +21,7 @@ def create_train_data(current_fold, plane):
     # get the list of image and label number of current_fold
     imlb_list = open(training_set_filename(current_fold), 'r').read().splitlines()
     current_fold = current_fold
-    training_image_set = np.zeros((len(imlb_list)), dtype=np.int)
+    training_image_set = np.zeros((len(imlb_list)), dtype=int)
 
     for i in range(len(imlb_list)):
         s = imlb_list[i].split(' ')
@@ -29,11 +29,11 @@ def create_train_data(current_fold, plane):
 
     slice_list = open(list_training[plane], 'r').read().splitlines()
     slices = len(slice_list)
-    image_ID = np.zeros((slices), dtype=np.int)
-    slice_ID = np.zeros((slices), dtype=np.int)
+    image_ID = np.zeros((slices), dtype=int)
+    slice_ID = np.zeros((slices), dtype=int)
     image_filename = ['' for l in range(slices)]
     label_filename = ['' for l in range(slices)]
-    pixels = np.zeros((slices), dtype=np.int)
+    pixels = np.zeros((slices), dtype=int)
 
     for l in range(slices):
         s = slice_list[l].split(' ')
@@ -111,17 +111,17 @@ def load_test_data(current_fold, plane):
 
 if __name__ == '__main__':
 
-    current_fold = int(sys.argv[1])
-    plane = sys.argv[2]
+    current_fold = int(sys.argv[2])
+    plane = sys.argv[3]
 
     # dim of each case (after padding zeors to max gt bounding box)
-    ZMAX = int(sys.argv[3])
-    YMAX = int(sys.argv[4])
-    XMAX = int(sys.argv[5])
+    ZMAX = int(sys.argv[4])
+    YMAX = int(sys.argv[5])
+    XMAX = int(sys.argv[6])
 
-    margin = int(sys.argv[6])
-    organ_ID = int(sys.argv[7])
-    low_range = int(sys.argv[8])
-    high_range = int(sys.argv[9])
+    margin = int(sys.argv[7])
+    organ_ID = int(sys.argv[8])
+    low_range = int(sys.argv[9])
+    high_range = int(sys.argv[10])
 
     create_train_data(current_fold, plane)
