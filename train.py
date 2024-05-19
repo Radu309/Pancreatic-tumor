@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from data import PrepareDataset, load_train_data
+from tqdm import tqdm
 from utils import DSC_computation
 
 
@@ -83,30 +84,28 @@ def dice_coef_loss(pred, target):
 def train_model(fold, plane, batch_size, epochs, lr):
     dataset = load_train_data(fold, plane)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    print("HERE ----\t1\t----")
     model = UNet().cuda()
-    print("HERE ----\t2\t----")
     optimizer = optim.Adam(model.parameters(), lr=lr)
-    print("HERE ----\t3\t----")
     criterion = dice_coef_loss
-    print("HERE ----\t4\t----")
     for epoch in range(epochs):
-        print("HERE ----\t5\t----")
         model.train()
-        print("HERE ----\t6\t----")
         epoch_loss = 0
-        for i, (images, masks) in enumerate(dataloader):
-            images = images.unsqueeze(1).cuda()
-            masks = masks.unsqueeze(1).cuda()
+        print(f"\nStarting epoch {epoch + 1}/{epochs}")
+        with tqdm(total=len(dataloader), desc=f"Epoch {epoch + 1}/{epochs}", unit="batch") as pbar:
+            for i, (images, masks) in enumerate(dataloader):
+                images = images.unsqueeze(1).cuda()
+                masks = masks.unsqueeze(1).cuda()
 
-            optimizer.zero_grad()
-            outputs = model(images)
-            loss = criterion(outputs, masks)
-            loss.backward()
-            optimizer.step()
-
-            epoch_loss += loss.item()
-            print(f'Epoch {epoch + 1}/{epochs}, Loss: {epoch_loss / len(dataloader)}')
+                optimizer.zero_grad()
+                outputs = model(images)
+                loss = criterion(outputs, masks)
+                loss.backward()
+                optimizer.step()
+                # Accumulate the loss for this epoch
+                batch_loss = loss.item()
+                epoch_loss += batch_loss
+                pbar.set_postfix(loss=batch_loss)
+                pbar.update(1)
         print(f'Epoch {epoch + 1}/{epochs}, Loss: {epoch_loss / len(dataloader)}')
 
 
@@ -117,6 +116,7 @@ if __name__ == "__main__":
     epochs = int(sys.argv[4])
     init_lr = float(sys.argv[5])
 
+    print('Using device:', torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
     # for fold_nr in range(folds):
     train_model(current_fold, plane, batch_size=1, epochs=epochs, lr=init_lr)
     print("Training done")
