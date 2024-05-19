@@ -35,7 +35,7 @@ slice_cmd = [
 # Create data for training
 data_cmd = [
     python_cmd, "data.py",
-    str(DATADIR_TRAIN), str(cur_fold), "Z", str(ZMAX), str(YMAX), str(XMAX), str(MARGIN),
+    str(DATADIR_TRAIN), str(FOLDS), "Z", str(ZMAX), str(YMAX), str(XMAX), str(MARGIN),
     str(ORGAN_NUMBER), str(LOW_RANGE), str(HIGH_RANGE)
 ]
 

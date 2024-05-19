@@ -1,173 +1,122 @@
 import os
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import numpy as np
 import sys
-import subprocess
-import argparse
-import tensorflow as tf
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Activation, concatenate, Conv2D, MaxPooling2D, Conv2DTranspose, ZeroPadding2D, Add
-from tensorflow.keras.optimizers import Adam, SGD
-from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger
-from tensorflow.keras import backend as K
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader
+from data import PrepareDataset, load_train_data
+from utils import DSC_computation
 
-import matplotlib.pyplot as plt
-import csv
 
-from utils import *
-from data import load_train_data
+class UNet(nn.Module):
+    def __init__(self):
+        super(UNet, self).__init__()
 
-# Set image data format
-tf.keras.backend.set_image_data_format('channels_last')
+        def conv_block(in_channels, out_channels):
+            return nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+                nn.ReLU(inplace=True)
+            )
 
-# ----- paths setting -----
-data_path = sys.argv[1] + "/"
-model_path = data_path + "models/"
-log_path = data_path + "logs/"
+        def up_conv_block(in_channels, out_channels):
+            return nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
 
-# ----- params for training and testing -----
-batch_size = 1
-cur_fold = sys.argv[2]
-plane = sys.argv[3]
-epoch = int(sys.argv[4])
-init_lr = float(sys.argv[5])
+        self.encoder1 = conv_block(1, 64)
+        self.encoder2 = conv_block(64, 128)
+        self.encoder3 = conv_block(128, 256)
+        self.encoder4 = conv_block(256, 512)
+        self.bottleneck = conv_block(512, 1024)
+        self.decoder4 = conv_block(1024, 512)
+        self.decoder3 = conv_block(512 , 256)
+        self.decoder2 = conv_block(256, 128)
+        self.decoder1 = conv_block(128, 64)
 
-# ----- Dice Coefficient and cost function for training -----
-smooth = 1.0
+        self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.upconv4 = up_conv_block(1024, 512)
+        self.upconv3 = up_conv_block(512, 256)
+        self.upconv2 = up_conv_block(256, 128)
+        self.upconv1 = up_conv_block(128, 64)
 
-def dice_coef(y_true, y_pred):
-    y_true_f = K.flatten(y_true)
-    y_pred_f = K.flatten(y_pred)
-    intersection = K.sum(y_true_f * y_pred_f)
-    return (2.0 * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+        self.final_conv = nn.Conv2d(64, 1, kernel_size=1)
 
-def dice_coef_loss(y_true, y_pred):
-    return -dice_coef(y_true, y_pred)
+    def forward(self, x):
+        # Encoder
+        e1 = self.encoder1(x)
+        e2 = self.encoder2(self.maxpool(e1))
+        e3 = self.encoder3(self.maxpool(e2))
+        e4 = self.encoder4(self.maxpool(e3))
 
-def get_unet(img_shape, flt=64, pool_size=(2, 2)):
-    """Build and compile Neural Network"""
-    print("Start building NN")
-    inputs = Input(img_shape)
+        # Bottleneck
+        b = self.bottleneck(self.maxpool(e4))
 
-    conv1 = Conv2D(flt, (3, 3), activation='relu', padding='same')(inputs)
-    conv1 = Conv2D(flt, (3, 3), activation='relu', padding='same')(conv1)
-    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+        # Decoder
+        d4 = self.upconv4(b)
+        d4 = torch.cat((d4, e4), dim=1)
+        d4 = self.decoder4(d4)
 
-    conv2 = Conv2D(flt * 2, (3, 3), activation='relu', padding='same')(pool1)
-    conv2 = Conv2D(flt * 2, (3, 3), activation='relu', padding='same')(conv2)
-    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+        d3 = self.upconv3(d4)
+        d3 = torch.cat((d3, e3), dim=1)
+        d3 = self.decoder3(d3)
 
-    conv3 = Conv2D(flt * 4, (3, 3), activation='relu', padding='same')(pool2)
-    conv3 = Conv2D(flt * 4, (3, 3), activation='relu', padding='same')(conv3)
-    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
+        d2 = self.upconv2(d3)
+        d2 = torch.cat((d2, e2), dim=1)
+        d2 = self.decoder2(d2)
 
-    conv4 = Conv2D(flt * 8, (3, 3), activation='relu', padding='same')(pool3)
-    conv4 = Conv2D(flt * 8, (3, 3), activation='relu', padding='same')(conv4)
-    pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
+        d1 = self.upconv1(d2)
+        d1 = torch.cat((d1, e1), dim=1)
+        d1 = self.decoder1(d1)
 
-    conv5 = Conv2D(flt * 16, (3, 3), activation='relu', padding='same')(pool4)
-    conv5 = Conv2D(flt * 16, (3, 3), activation='relu', padding='same')(conv5)
+        # Final Convolution
+        out = self.final_conv(d1)
+        return out
 
-    up6 = concatenate([Conv2DTranspose(flt * 8, (2, 2), strides=(2, 2), padding='same')(conv5), conv4], axis=3)
-    conv6 = Conv2D(flt * 8, (3, 3), activation='relu', padding='same')(up6)
-    conv6 = Conv2D(flt * 8, (3, 3), activation='relu', padding='same')(conv6)
 
-    up7 = concatenate([Conv2DTranspose(flt * 4, (2, 2), strides=(2, 2), padding='same')(conv6), conv3], axis=3)
-    conv7 = Conv2D(flt * 4, (3, 3), activation='relu', padding='same')(up7)
-    conv7 = Conv2D(flt * 4, (3, 3), activation='relu', padding='same')(conv7)
+def dice_coef_loss(pred, target):
+    smooth = 1.0
+    intersection = (pred * target).sum()
+    return 1 - (2. * intersection + smooth) / (pred.sum() + target.sum() + smooth)
 
-    up8 = concatenate([Conv2DTranspose(flt * 2, (2, 2), strides=(2, 2), padding='same')(conv7), conv2], axis=3)
-    conv8 = Conv2D(flt * 2, (3, 3), activation='relu', padding='same')(up8)
-    conv8 = Conv2D(flt * 2, (3, 3), activation='relu', padding='same')(conv8)
 
-    up9 = concatenate([Conv2DTranspose(flt, (2, 2), strides=(2, 2), padding='same')(conv8), conv1], axis=3)
-    conv9 = Conv2D(flt, (3, 3), activation='relu', padding='same')(up9)
-    conv9 = Conv2D(flt, (3, 3), activation='relu', padding='same')(conv9)
+def train_model(fold, plane, batch_size, epochs, lr):
+    dataset = load_train_data(fold, plane)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    print("HERE ----\t1\t----")
+    model = UNet().cuda()
+    print("HERE ----\t2\t----")
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    print("HERE ----\t3\t----")
+    criterion = dice_coef_loss
+    print("HERE ----\t4\t----")
+    for epoch in range(epochs):
+        print("HERE ----\t5\t----")
+        model.train()
+        print("HERE ----\t6\t----")
+        epoch_loss = 0
+        for i, (images, masks) in enumerate(dataloader):
+            images = images.unsqueeze(1).cuda()
+            masks = masks.unsqueeze(1).cuda()
 
-    conv10 = Conv2D(1, (1, 1), activation='sigmoid')(conv9)
+            optimizer.zero_grad()
+            outputs = model(images)
+            loss = criterion(outputs, masks)
+            loss.backward()
+            optimizer.step()
 
-    model = Model(inputs=[inputs], outputs=[conv10])
+            epoch_loss += loss.item()
+            print(f'Epoch {epoch + 1}/{epochs}, Loss: {epoch_loss / len(dataloader)}')
+        print(f'Epoch {epoch + 1}/{epochs}, Loss: {epoch_loss / len(dataloader)}')
 
-    model.compile(optimizer=Adam(learning_rate=init_lr), loss=dice_coef_loss, metrics=[dice_coef])
-
-    return model
-
-def train(fold, plane, batch_size, nb_epoch):
-    """
-    Train a U-Net model with data from load_train_data()
-
-    Parameters
-    ----------
-    fold : string
-        Which fold is experimenting in 4-fold. It should be one of 0/1/2/3
-
-    plane : char
-        Which plane is experimenting. It is from 'X'/'Y'/'Z'
-
-    batch_size : int
-        Size of mini-batch
-
-    nb_epoch : int
-        Number of epochs to train NN
-
-    init_lr : float
-        Initial learning rate
-    """
-    print("Number of epochs: ", nb_epoch)
-    print("Learning rate: ", init_lr)
-
-    # --------------------- load and preprocess training data -----------------
-    print('-' * 80)
-    print('         Loading and preprocessing train data...')
-    print('-' * 80)
-
-    images_train, masks_train = load_train_data(fold, plane)
-
-    images_row = images_train.shape[1]
-    images_col = images_train.shape[2]
-
-    images_train = preprocess(images_train)
-    masks_train = preprocess(masks_train)
-
-    images_train = images_train.astype('float32')
-    masks_train = masks_train.astype('float32')
-
-    # ---------------------- Create, compile, and train model ------------------------
-    print('-' * 80)
-    print('        Creating and compiling model...')
-    print('-' * 80)
-
-    model = get_unet((images_row, images_col, 1), pool_size=(2, 2))
-    print(model.summary())
-
-    print('-' * 80)
-    print('        Fitting model...')
-    print('-' * 80)
-
-    ver = 'unet_fd{}_{}_ep{}_lr{}.csv'.format(cur_fold, plane, epoch, init_lr)
-    csv_logger = CSVLogger(log_path + ver)
-    model_checkpoint = ModelCheckpoint(model_path + ver + ".keras",
-                                       monitor='loss',
-                                       save_best_only=False,
-                                       save_freq='epoch')
-
-    history = model.fit(images_train, masks_train,
-                        batch_size=batch_size, epochs=nb_epoch, verbose=1, shuffle=True,
-                        callbacks=[model_checkpoint, csv_logger])
-
-def check_gpu():
-    gpus = tf.config.list_physical_devices('GPU')
-    if gpus:
-        print("GPUs are available:")
-        for gpu in gpus:
-            print(f"  {gpu}")
-    else:
-        print("No GPUs found.")
 
 if __name__ == "__main__":
-    check_gpu()  # Check if GPU is available before starting training
-    #let's ignore the value from cur_fold, and train all the folds
-    for fold_nr in range(4):
-        train(str(fold_nr), plane, batch_size, epoch)
-        # train(cur_fold, plane, batch_size, epoch, init_lr)
+    data_path = sys.argv[1]
+    current_fold = int(sys.argv[2])
+    plane = sys.argv[3]
+    epochs = int(sys.argv[4])
+    init_lr = float(sys.argv[5])
+
+    # for fold_nr in range(folds):
+    train_model(current_fold, plane, batch_size=1, epochs=epochs, lr=init_lr)
     print("Training done")
