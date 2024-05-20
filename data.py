@@ -59,12 +59,12 @@ def create_train_data(current_fold, plane):
         raise ValueError('slice number does not equal mask number!')
 
     dataset = PrepareDataset(create_slice_list, create_mask_list)
-    torch.save(dataset, os.path.join(data_path, f'train_dataset_fold_{current_fold}_plane_{plane}.pt'))
+    torch.save(dataset, os.path.join(data_path, f'dataset/train_dataset_fold_{current_fold}_plane_{plane}.pt'))
     print(f'Training data created for fold {current_fold}, plane {plane}')
 
 
 def load_train_data(fold, plane):
-    return torch.load(os.path.join(data_path, f'train_dataset_fold_{fold}_plane_{plane}.pt'))
+    return torch.load(os.path.join(data_path, f'dataset/train_dataset_fold_{fold}_plane_{plane}.pt'))
 
 
 if __name__ == '__main__':

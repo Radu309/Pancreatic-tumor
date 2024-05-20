@@ -11,9 +11,10 @@ mask_path = os.path.join(data_path, 'masks')
 list_path = os.path.join(data_path, 'lists')
 model_path = os.path.join(data_path, 'models')
 log_path = os.path.join(data_path, 'logs')
+dataset_path = os.path.join(data_path, 'dataset')
 
 # Ensure directories exist
-paths = [image_path, mask_path, list_path, model_path, log_path]
+paths = [image_path, mask_path, list_path, model_path, log_path, dataset_path]
 for path in paths:
     if not os.path.exists(path):
         os.makedirs(path)
