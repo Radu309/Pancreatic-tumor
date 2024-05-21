@@ -83,7 +83,6 @@ def dice_coef_loss(pred, target):
     return 1 - (2. * intersection + smooth) / (pred.sum() + target.sum() + smooth)
 
 
-
 def train_model(fold, plane, batch_size, epochs, lr):
     dataset = load_train_data(fold, plane)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
