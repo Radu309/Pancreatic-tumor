@@ -5,6 +5,24 @@ import sys
 from utils import *
 
 
+class PrepareDataset(torch.utils.data.Dataset):
+    def __init__(self, images, masks, transform=None):
+        self.images = images
+        self.masks = masks
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        image = self.images[idx]
+        mask = self.masks[idx]
+        if self.transform:
+            image = self.transform(image)
+            mask = self.transform(mask)
+        return image, mask
+
+
 def create_train_data(current_fold):
     images_list = open(training_set_filename(current_fold), 'r').read().splitlines()
     training_image_set = np.zeros((len(images_list)), dtype=int)
@@ -80,7 +98,8 @@ def create_train_data(current_fold):
 
 
 def load_train_data(fold):
-    return torch.load(os.path.join(data_path, f'dataset/train_dataset_fold_{fold}_plane_Z.pt'))
+    images, masks = torch.load(os.path.join(data_path, f'dataset/train_dataset_fold_{fold}_plane_Z.pt'))
+    return PrepareDataset(images, masks)
 
 
 if __name__ == '__main__':
