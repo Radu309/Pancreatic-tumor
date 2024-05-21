@@ -18,7 +18,7 @@ for path in paths:
     if not os.path.exists(path):
         os.makedirs(path)
 
-list_training = {os.path.join(data_path, 'training_Z' + '.txt')}
+list_training = os.path.join(data_path, 'training_Z' + '.txt')
 
 
 def preprocess(images):
