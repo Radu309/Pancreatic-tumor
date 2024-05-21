@@ -2,34 +2,23 @@ import numpy as np
 import os
 import sys
 
-
 data_path = sys.argv[1]
 
 # Define paths at the module level
 image_path = os.path.join(data_path, 'images')
 mask_path = os.path.join(data_path, 'masks')
 list_path = os.path.join(data_path, 'lists')
-model_path = os.path.join(data_path, 'models')
-log_path = os.path.join(data_path, 'logs')
 dataset_path = os.path.join(data_path, 'dataset')
+# another path just to push/pull to/from git
+model_path = '/models'
 
 # Ensure directories exist
-paths = [image_path, mask_path, list_path, model_path, log_path, dataset_path]
+paths = [image_path, mask_path, list_path, model_path, dataset_path]
 for path in paths:
     if not os.path.exists(path):
         os.makedirs(path)
 
-image_path_ = {plane: os.path.join(data_path, 'images_' + plane) for plane in ['Z']}
-mask_path_ = {plane: os.path.join(data_path, 'masks_' + plane) for plane in ['Z']}
-list_training = {plane: os.path.join(data_path, 'training_' + plane + '.txt') for plane in ['Z']}
-
-for path in image_path_.values():
-    if not os.path.exists(path):
-        os.makedirs(path)
-
-for path in mask_path_.values():
-    if not os.path.exists(path):
-        os.makedirs(path)
+list_training = {os.path.join(data_path, 'training_Z' + '.txt')}
 
 
 def preprocess(images):
@@ -50,13 +39,14 @@ def is_organ(mask, organ_ID):
     return mask == organ_ID
 
 
-def pad_2d(image, plane, padval, xmax, ymax, zmax):
-    if plane == 'X':
-        npad = ((0, ymax - image.shape[1]), (0, zmax - image.shape[2]))
-        padded = np.pad(image, pad_width=npad, mode='constant', constant_values=padval)
-    elif plane == 'Z':
-        npad = ((0, xmax - image.shape[0]), (0, ymax - image.shape[1]))
-        padded = np.pad(image, pad_width=npad, mode='constant', constant_values=padval)
+def normalize_image(image, low_range, high_range):
+    return (image - low_range) / float(high_range - low_range)
+
+
+def pad_2d(image, pad_val, xmax, ymax):
+    # for axial plane
+    val = ((0, xmax - image.shape[0]), (0, ymax - image.shape[1]))
+    padded = np.pad(image, pad_width=val, mode='constant', constant_values=pad_val)
     return padded
 
 
@@ -70,12 +60,12 @@ def in_training_set(total_samples, i, folds, current_fold):
 
 # returning the filename of the training set according to the current fold ID
 def training_set_filename(current_fold):
-    return os.path.join(list_path, 'training_' + 'FD' + str(current_fold) + '.txt')
+    return os.path.join(list_path, 'training_fold_' + str(current_fold) + '.txt')
 
 
 # returning the filename of the testing set according to the current fold ID
 def testing_set_filename(current_fold):
-    return os.path.join(list_path, 'testing_' + 'FD' + str(current_fold) + '.txt')
+    return os.path.join(list_path, 'testing_fold_' + str(current_fold) + '.txt')
 
 
 # computing the DSC together with other values based on the mask and prediction volumes

@@ -5,25 +5,7 @@ import sys
 from utils import *
 
 
-class PrepareDataset(torch.utils.data.Dataset):
-    def __init__(self, image_files, mask_files, transform=None):
-        self.image_files = image_files
-        self.mask_files = mask_files
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.image_files)
-
-    def __getitem__(self, idx):
-        image = np.load(self.image_files[idx])
-        mask = np.load(self.mask_files[idx])
-        if self.transform:
-            image = self.transform(image)
-            mask = self.transform(mask)
-        return torch.tensor(image, dtype=torch.float32), torch.tensor(mask, dtype=torch.float32)
-
-
-def create_train_data(current_fold, plane):
+def create_train_data(current_fold):
     images_list = open(training_set_filename(current_fold), 'r').read().splitlines()
     training_image_set = np.zeros((len(images_list)), dtype=int)
 
@@ -31,7 +13,7 @@ def create_train_data(current_fold, plane):
         s = images_list[i].split(' ')
         training_image_set[i] = int(s[0])
 
-    slice_list = open(list_training[plane], 'r').read().splitlines()
+    slice_list = open(list_training, 'r').read().splitlines()
     slices = len(slice_list)
     image_ID = np.zeros(slices, dtype=int)
     slice_ID = np.zeros(slices, dtype=int)
@@ -45,12 +27,14 @@ def create_train_data(current_fold, plane):
         slice_ID[i] = s[1]
         image_filename[i] = s[2]
         mask_filename[i] = s[3]
-        pixels[i] = float(s[organ_ID * 5])
+        pixels[i] = int(s[5])
 
     create_slice_list = []
     create_mask_list = []
 
     for i in range(slices):
+        # minimum 100 pixels on image to consider it for training
+        # check if the 2D image is in the other files by ID
         if image_ID[i] in training_image_set and pixels[i] >= 100:
             create_slice_list.append(image_filename[i])
             create_mask_list.append(mask_filename[i])
@@ -58,29 +42,57 @@ def create_train_data(current_fold, plane):
     if len(create_slice_list) != len(create_mask_list):
         raise ValueError('slice number does not equal mask number!')
 
-    dataset = PrepareDataset(create_slice_list, create_mask_list)
-    torch.save(dataset, os.path.join(data_path, f'dataset/train_dataset_fold_{current_fold}_plane_{plane}.pt'))
-    print(f'Training data created for fold {current_fold}, plane {plane}')
+    total = len(create_slice_list)
+    images_list_normalized = np.ndarray((total, XMAX, YMAX), dtype=np.dtype)
+    masks_list_normalized = np.ndarray((total, XMAX, YMAX), dtype=np.dtype)
+
+    for i in range(total):
+        current_image = np.load(create_slice_list[i])
+        current_mask = np.load(create_mask_list[i])
+
+        current_image = normalize_image(current_image, low_range, high_range)
+        arr = np.nonzero(current_mask)
+
+        width = current_mask.shape[0]
+        height = current_mask.shape[1]
+
+        minA = min(arr[0])
+        maxA = max(arr[0])
+        minB = min(arr[1])
+        maxB = max(arr[1])
+
+        cropped_image = current_image[max(minA - margin, 0): min(maxA + margin + 1, width),
+                     max(minB - margin, 0): min(maxB + margin + 1, height)]
+        cropped_mask = current_mask[max(minA - margin, 0): min(maxA + margin + 1, width),
+                       max(minB - margin, 0): min(maxB + margin + 1, height)]
+
+        images_list_normalized[i] = pad_2d(cropped_image, 0, XMAX, YMAX)
+        masks_list_normalized[i] = pad_2d(cropped_mask, 0, XMAX, YMAX)
+
+        if i % 100 == 0:
+            print(f'Done: {i}/{total} slices')
+
+    torch.save((torch.tensor(images_list_normalized), torch.tensor(masks_list_normalized)),
+               os.path.join(data_path, f'dataset/train_dataset_fold_{current_fold}_plane_Z.pt'))
+    print(f'Training data created for fold {current_fold}, plane Z')
 
 
-def load_train_data(fold, plane):
-    return torch.load(os.path.join(data_path, f'dataset/train_dataset_fold_{fold}_plane_{plane}.pt'))
+def load_train_data(fold):
+    return torch.load(os.path.join(data_path, f'dataset/train_dataset_fold_{fold}_plane_Z.pt'))
 
 
 if __name__ == '__main__':
     data_path = sys.argv[1]
     folds = int(sys.argv[2])
-    plane = sys.argv[3]
 
-    ZMAX = int(sys.argv[4])
-    YMAX = int(sys.argv[5])
-    XMAX = int(sys.argv[6])
+    ZMAX = int(sys.argv[3])
+    YMAX = int(sys.argv[4])
+    XMAX = int(sys.argv[5])
 
-    margin = int(sys.argv[7])
-    organ_ID = int(sys.argv[8])
-    low_range = int(sys.argv[9])
-    high_range = int(sys.argv[10])
+    margin = int(sys.argv[6])
+    low_range = int(sys.argv[7])
+    high_range = int(sys.argv[8])
 
     for current_fold in range(folds):
-        create_train_data(current_fold, plane)
+        create_train_data(current_fold)
 

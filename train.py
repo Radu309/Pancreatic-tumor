@@ -7,9 +7,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from data import PrepareDataset, load_train_data
+from data import load_train_data
 from tqdm import tqdm
-from utils import DSC_computation, model_path
+from utils import model_path
 
 
 class UNet(nn.Module):
@@ -83,8 +83,8 @@ def dice_coef_loss(pred, target):
     return 1 - (2. * intersection + smooth) / (pred.sum() + target.sum() + smooth)
 
 
-def train_model(fold, plane, batch_size, epochs, lr):
-    dataset = load_train_data(fold, plane)
+def train_model(fold, batch_size, epochs, lr):
+    dataset = load_train_data(fold)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     model = UNet().cuda()
     optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -128,13 +128,11 @@ def train_model(fold, plane, batch_size, epochs, lr):
 
 if __name__ == "__main__":
     data_path = sys.argv[1]
-    # current_fold = int(sys.argv[2])
     folds = int(sys.argv[2])
-    plane = sys.argv[3]
-    epochs = int(sys.argv[4])
-    init_lr = float(sys.argv[5])
+    epochs = int(sys.argv[3])
+    init_lr = float(sys.argv[4])
 
-    print('Using device:', torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+    print('Using device: ', torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
     for fold_nr in range(folds):
-        train_model(fold_nr, plane, batch_size=1, epochs=epochs, lr=init_lr)
+        train_model(fold_nr, batch_size=1, epochs=epochs, lr=init_lr)
     print("Training done")

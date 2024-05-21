@@ -1,6 +1,11 @@
 import sys
 import subprocess
 
+#inainte de prima rulare, trebuie redenumite 2 fisiere in setul de date: 81 in 25; 82 in 70
+#setul descarcat are 80 de elemente, 25 si 70 lipsesc.
+
+#online Z plane for dataset
+
 DATADIR_TRAIN = "data/Pancreas_Segmentation/train"
 
 # Parameters
@@ -8,7 +13,6 @@ cur_fold = 0
 FOLDS = 4
 LOW_RANGE = -100
 HIGH_RANGE = 240
-ORGAN_NUMBER = 1
 MARGIN = 20
 ZMAX = 160
 YMAX = 256
@@ -29,20 +33,20 @@ convert_cmd = [
 # Slice the 3D volume to 2D slices
 slice_cmd = [
     python_cmd, "slice.py",
-    str(DATADIR_TRAIN), str(ORGAN_NUMBER), str(FOLDS), str(LOW_RANGE), str(HIGH_RANGE)
+    str(DATADIR_TRAIN), str(FOLDS), str(LOW_RANGE), str(HIGH_RANGE)
 ]
 
 # Create data for training
 data_cmd = [
     python_cmd, "data.py",
-    str(DATADIR_TRAIN), str(FOLDS), "Z", str(ZMAX), str(YMAX), str(XMAX), str(MARGIN),
-    str(ORGAN_NUMBER), str(LOW_RANGE), str(HIGH_RANGE)
+    str(DATADIR_TRAIN), str(FOLDS), str(ZMAX), str(YMAX), str(XMAX), str(MARGIN),
+    str(LOW_RANGE), str(HIGH_RANGE)
 ]
 
 # Train the model
 train_cmd = [
     python_cmd, "train.py",
-    str(DATADIR_TRAIN), str(FOLDS), "Z", str(epoch), str(init_lr)
+    str(DATADIR_TRAIN), str(FOLDS),  str(epoch), str(init_lr)
 ]
 
 # Test the model
