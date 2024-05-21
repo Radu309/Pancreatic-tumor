@@ -43,8 +43,9 @@ def create_train_data(current_fold):
         raise ValueError('slice number does not equal mask number!')
 
     total = len(create_slice_list)
-    images_list_normalized = np.ndarray((total, XMAX, YMAX), dtype=np.dtype)
-    masks_list_normalized = np.ndarray((total, XMAX, YMAX), dtype=np.dtype)
+
+    images_list_normalized = np.ndarray((total, XMAX, YMAX), dtype=np.float32)
+    masks_list_normalized = np.ndarray((total, XMAX, YMAX), dtype=np.float32)
 
     for i in range(total):
         current_image = np.load(create_slice_list[i])
@@ -74,6 +75,7 @@ def create_train_data(current_fold):
 
     torch.save((torch.tensor(images_list_normalized), torch.tensor(masks_list_normalized)),
                os.path.join(data_path, f'dataset/train_dataset_fold_{current_fold}_plane_Z.pt'))
+
     print(f'Training data created for fold {current_fold}, plane Z')
 
 

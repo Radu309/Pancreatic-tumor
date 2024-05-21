@@ -10,7 +10,7 @@ mask_path = os.path.join(data_path, 'masks')
 list_path = os.path.join(data_path, 'lists')
 dataset_path = os.path.join(data_path, 'dataset')
 # another path just to push/pull to/from git
-model_path = '/models'
+model_path = 'models'
 
 # Ensure directories exist
 paths = [image_path, mask_path, list_path, model_path, dataset_path]
