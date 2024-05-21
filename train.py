@@ -129,12 +129,13 @@ def train_model(fold, plane, batch_size, epochs, lr):
 
 if __name__ == "__main__":
     data_path = sys.argv[1]
-    current_fold = int(sys.argv[2])
+    # current_fold = int(sys.argv[2])
+    folds = int(sys.argv[2])
     plane = sys.argv[3]
     epochs = int(sys.argv[4])
     init_lr = float(sys.argv[5])
 
     print('Using device:', torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
-    for fold_nr in range(3):
-        train_model((fold_nr+1), plane, batch_size=1, epochs=epochs, lr=init_lr)
+    for fold_nr in range(folds):
+        train_model(fold_nr, plane, batch_size=1, epochs=epochs, lr=init_lr)
     print("Training done")

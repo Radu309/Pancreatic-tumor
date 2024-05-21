@@ -42,7 +42,7 @@ data_cmd = [
 # Train the model
 train_cmd = [
     python_cmd, "train.py",
-    str(DATADIR_TRAIN), str(cur_fold), "Z", str(epoch), str(init_lr)
+    str(DATADIR_TRAIN), str(FOLDS), "Z", str(epoch), str(init_lr)
 ]
 
 # Test the model
