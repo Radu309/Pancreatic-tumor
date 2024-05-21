@@ -1,4 +1,6 @@
 import os
+import time
+
 import numpy as np
 import sys
 import torch
@@ -7,7 +9,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from data import PrepareDataset, load_train_data
 from tqdm import tqdm
-from utils import DSC_computation
+from utils import DSC_computation, model_path
 
 
 class UNet(nn.Module):
@@ -31,7 +33,7 @@ class UNet(nn.Module):
         self.encoder4 = conv_block(256, 512)
         self.bottleneck = conv_block(512, 1024)
         self.decoder4 = conv_block(1024, 512)
-        self.decoder3 = conv_block(512 , 256)
+        self.decoder3 = conv_block(512, 256)
         self.decoder2 = conv_block(256, 128)
         self.decoder1 = conv_block(128, 64)
 
@@ -81,6 +83,7 @@ def dice_coef_loss(pred, target):
     return 1 - (2. * intersection + smooth) / (pred.sum() + target.sum() + smooth)
 
 
+
 def train_model(fold, plane, batch_size, epochs, lr):
     dataset = load_train_data(fold, plane)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -89,10 +92,14 @@ def train_model(fold, plane, batch_size, epochs, lr):
     criterion = dice_coef_loss
     for epoch in range(epochs):
         model.train()
+        total_images = 0
+        total_time = 0.0
         epoch_loss = 0
         print(f"\nStarting epoch {epoch + 1}/{epochs}")
         with tqdm(total=len(dataloader), desc=f"Epoch {epoch + 1}/{epochs}", unit="batch") as pbar:
             for i, (images, masks) in enumerate(dataloader):
+                start_time = time.time()
+
                 images = images.unsqueeze(1).cuda()
                 masks = masks.unsqueeze(1).cuda()
 
@@ -101,12 +108,23 @@ def train_model(fold, plane, batch_size, epochs, lr):
                 loss = criterion(outputs, masks)
                 loss.backward()
                 optimizer.step()
+
                 # Accumulate the loss for this epoch
                 batch_loss = loss.item()
                 epoch_loss += batch_loss
-                pbar.set_postfix(loss=batch_loss)
+                total_images += images.size(0)
+
+                # Calculate batch processing time
+                batch_time = time.time() - start_time
+                total_time += batch_time
+
+                # Update progress bar
+                avg_time_per_image = total_time / total_images
+                pbar.set_postfix(loss=batch_loss, avg_time_per_image=f"{avg_time_per_image:.4f} s")
+
                 pbar.update(1)
         print(f'Epoch {epoch + 1}/{epochs}, Loss: {epoch_loss / len(dataloader)}')
+    torch.save(model.state_dict(), os.path.join(model_path, f'UNet_fold_{fold}_final.pth'))
 
 
 if __name__ == "__main__":
@@ -117,6 +135,6 @@ if __name__ == "__main__":
     init_lr = float(sys.argv[5])
 
     print('Using device:', torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
-    # for fold_nr in range(folds):
-    train_model(current_fold, plane, batch_size=1, epochs=epochs, lr=init_lr)
+    for fold_nr in range(3):
+        train_model((fold_nr+1), plane, batch_size=1, epochs=epochs, lr=init_lr)
     print("Training done")
