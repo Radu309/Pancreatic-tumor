@@ -1,17 +1,17 @@
-import time
-from utils import *
-
+import numpy as np
+import os
+import sys
 
 class DataPreprocessor:
-    def __init__(self, folds, low_range, high_range):
-        self.folds = folds
-        self.low_range = low_range
-        self.high_range = high_range
+    def __init__(self):
+        # self.folds = folds
+        self.low_range = -100
+        self.high_range = 240
         self.image_npy_path = 'data/Pancreas_Segmentation/NPY_Images'
-        self.image_path = 'data/Pancreas_Segmentation/train/images'
+        self.image_path = 'data/Pancreas_Segmentation/images'
         self.mask_npy_path = 'data/Pancreas_Segmentation/NPY_Masks'
-        self.mask_path = 'data/Pancreas_Segmentation/train/masks'
-        self.list_training = 'data/Pancreas_Segmentation/train/training_Z.txt'
+        self.mask_path = 'data/Pancreas_Segmentation/masks'
+        self.list_training = 'data/Pancreas_Segmentation/training_Z.txt'
 
     def main(self):
         image_list = []
@@ -32,6 +32,9 @@ class DataPreprocessor:
             exit('Error: the number of masks and the number of images are not equal!')
 
         total_samples = len(image_list)
+        print(total_samples)
+        print(image_filename)
+        print(mask_filename)
 
         directory = os.path.dirname(self.list_training)
         if not os.path.exists(directory):
@@ -39,10 +42,7 @@ class DataPreprocessor:
         output = open(self.list_training, 'w')
         output.close()
 
-        print('Initialization starts.')
-
         for i in range(total_samples):
-            start_time = time.time()
             print('Processing ' + str(i + 1) + ' out of ' + str(len(image_list)) + ' files.')
 
             image = np.load(image_list[i])
@@ -106,7 +106,6 @@ class DataPreprocessor:
                 minB[j] = np.min(arr[1]) if arr[1].size > 0 else 0
                 maxB[j] = np.max(arr[1]) if arr[1].size > 0 else 0
 
-            # iterate each slice of current case i
             for j in range(slice_number):
                 image_filename_ = os.path.join(
                     image_directory_, '{:0>4}'.format(j) + '.npy')
@@ -127,38 +126,7 @@ class DataPreprocessor:
                         output.write(f" {sum_[j]} {minA[j]} {maxA[j]} {minB[j]} {maxB[j]}")
                         output.write('\n')
 
-            print(f"Processed {i + 1} out of {len(image_list)} files: {time.time() - start_time} second(s) elapsed.")
-
-        # create the 4 training image lists
-        print('Writing training image list.')
-        for f in range(self.folds):
-            list_training_ = training_set_filename(f)
-            output = open(list_training_, 'w')
-            for i in range(total_samples):
-                if in_training_set(total_samples, i, self.folds, f):
-                    output.write(str(i) + ' ' + image_list[i] + ' ' + mask_list[i] + '\n')
-            output.close()
-
-        # create the 4 test image lists
-        print('Writing testing image list.')
-        for f in range(self.folds):
-            list_testing_ = testing_set_filename(f)
-            output = open(list_testing_, 'w')
-            for i in range(total_samples):
-                if not in_training_set(total_samples, i, self.folds, f):
-                    output.write(str(i) + ' ' + image_list[i] + ' ' + mask_list[i] + '\n')
-            output.close()
-
-        print('Initialization is done.')
-
 
 if __name__ == '__main__':
-    # for more details, check the pipeline file
-    # first argv for utils file
-    data_path = sys.argv[1]
-    folds = int(sys.argv[2])
-    low_range = int(sys.argv[3])
-    high_range = int(sys.argv[4])
-
-    data_preprocessor = DataPreprocessor(folds, low_range, high_range)
+    data_preprocessor = DataPreprocessor()
     data_preprocessor.main()
