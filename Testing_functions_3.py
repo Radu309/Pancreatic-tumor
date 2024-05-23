@@ -1,21 +1,38 @@
+import torch
+import sys
+import matplotlib.pyplot as plt
 import numpy as np
-import os
 
+def display_pt_data(file_path):
+    # Încărcați datele din fișierul .pt
+    data = torch.load(file_path)
+    images, masks = data
+    print(len(images))
+    print(len(masks))
 
-def display_min_max_values(training_list_path, z_start, z_end):
-    maxim = -100
+    # Afișați informații despre dimensiuni
+    print(f"Images shape: {images.shape}")
+    print(f"Masks shape: {masks.shape}")
 
-    image = np.load(training_list_path)
+    # Afișați primele imagini și măști
+    for i in range(30,50):
+        image = images[i].numpy()
+        mask = masks[i].numpy()
 
-    for i in range(z_start, z_end):
-        image_slice = image[:, :, i]
-        if maxim < int(image_slice.max()):
-            maxim = max(maxim, float(image.max()))
-            print(f'Slice = {i}, MIN = {image_slice.min()}, MAX = {image_slice.max()}')
+        # Afișare imagine
+        plt.figure(figsize=(12, 6))
 
+        plt.subplot(1, 2, 1)
+        plt.imshow(image, cmap='gray')
+        plt.title(f'Image {i+1}')
+
+        # Afișare mască
+        plt.subplot(1, 2, 2)
+        plt.imshow(mask, cmap='gray')
+        plt.title(f'Mask {i+1}')
+
+        plt.show()
 
 if __name__ == '__main__':
-    training_list_path = 'data/Pancreas_Segmentation/NPY_Images/0001.npy'
-    z_start = 63
-    z_end = 131
-    display_min_max_values(training_list_path, z_start, z_end)
+    file_path = 'data/Pancreas_Segmentation/train/dataset/train_dataset_fold_0_plane_Z.pt'
+    display_pt_data(file_path)

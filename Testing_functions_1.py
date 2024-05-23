@@ -8,7 +8,7 @@ def display_min_max_values(training_list_path):
         lines = file.readlines()
         for line in lines:
             file_id, slice_id, image_filename, mask_filename, *_ = line.split()
-            if int(file_id) > 0:
+            if int(file_id) == 20:
                 image = np.load(image_filename)
                 if -100 < int(image.max()):
                     maxim = max(maxim, float(image.max()))
@@ -21,5 +21,5 @@ def display_min_max_values(training_list_path):
 
 
 if __name__ == '__main__':
-    training_list_path = 'data/Pancreas_Segmentation/training_Z.txt'
+    training_list_path = 'data/Pancreas_Segmentation/train/training_Z.txt'
     display_min_max_values(training_list_path)

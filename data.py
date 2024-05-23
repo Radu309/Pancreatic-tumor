@@ -62,17 +62,14 @@ def create_train_data(current_fold):
 
     total = len(create_slice_list)
 
-    images_list_normalized = np.ndarray((total, 512, 512), dtype=np.float32)
-    masks_list_normalized = np.ndarray((total, 512, 512), dtype=np.float32)
+    images_list_normalized = np.ndarray((total, XMAX, YMAX), dtype=np.float32)
+    masks_list_normalized = np.ndarray((total, XMAX, YMAX), dtype=np.float32)
+
     for i in range(total):
         current_image = np.load(create_slice_list[i])
         current_mask = np.load(create_mask_list[i])
 
-        # current_image = normalize_image(current_image, low_range, high_range)
-        if current_image.min() != -100:
-            print(f"Preprocessed Image {i} min: {current_image.min()}, max: {current_image.max()}")
-        if current_mask.max() == 1:
-            print(f"Preprocessed Image {i} min: {current_mask.min()}, max: {current_mask.max()}")
+        current_image = normalize_image(current_image, low_range, high_range)
 
         if current_image.max() > 1:
             current_image = current_image / current_image.max()
@@ -91,11 +88,14 @@ def create_train_data(current_fold):
         cropped_mask = current_mask[max(minA - margin, 0): min(maxA + margin + 1, width),
                        max(minB - margin, 0): min(maxB + margin + 1, height)]
 
-        # images_list_normalized[i] = pad_2d(cropped_image, 0, XMAX, YMAX)
-        # masks_list_normalized[i] = pad_2d(cropped_mask, 0, XMAX, YMAX)
+        images_list_normalized[i] = pad_2d(cropped_image, 0, XMAX, YMAX)
+        masks_list_normalized[i] = pad_2d(cropped_mask, 0, XMAX, YMAX)
 
-        images_list_normalized[i] = current_image
-        masks_list_normalized[i] = current_mask
+        # images_list_normalized[i] = pad_2d(current_image, 0, XMAX, YMAX)
+        # masks_list_normalized[i] = pad_2d(current_mask, 0, XMAX, YMAX)
+
+        # images_list_normalized[i] = current_image
+        # masks_list_normalized[i] = current_mask
 
         if i % 100 == 0:
             print(f'Done: {i}/{total} slices')

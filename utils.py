@@ -58,6 +58,13 @@ def in_training_set(total_samples, i, folds, current_fold):
     return not (start_index <= i < end_index)
 
 
+def dice_coefficient(y_true, y_pred, smooth):
+    y_true_f = y_true.view(-1)
+    y_pred_f = y_pred.view(-1)
+    intersection = (y_true_f * y_pred_f).sum()
+    return (2.0 * intersection + smooth) / (y_true_f.sum() + y_pred_f.sum() + smooth)
+
+
 # returning the filename of the training set according to the current fold ID
 def training_set_filename(current_fold):
     return os.path.join(list_path, 'training_fold_' + str(current_fold) + '.txt')

@@ -19,6 +19,8 @@ YMAX = 256
 XMAX = 192
 epoch = 10
 init_lr = 1e-5
+smooth = 1
+batch_size = 1
 model_test = f"unet_fd{cur_fold}_Z_ep{epoch}_lr{init_lr}"
 vis = False
 
@@ -46,7 +48,7 @@ data_cmd = [
 # Train the model
 train_cmd = [
     python_cmd, "train.py",
-    str(DATADIR_TRAIN), str(FOLDS),  str(epoch), str(init_lr)
+    str(DATADIR_TRAIN), str(FOLDS),  str(epoch), str(init_lr), str(smooth), str(batch_size),
 ]
 
 # Test the model
