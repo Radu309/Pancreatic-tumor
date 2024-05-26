@@ -17,10 +17,10 @@ MARGIN = 20
 ZMAX = 160
 YMAX = 256
 XMAX = 192
-epoch = 10
-init_lr = 1e-5
-smooth = 1
-batch_size = 1
+epoch = 100
+batch_size = 16
+init_lr = 1e-8
+smooth = 1e-3
 model_test = f"unet_fd{cur_fold}_Z_ep{epoch}_lr{init_lr}"
 vis = False
 
@@ -53,7 +53,7 @@ train_cmd = [
 
 # Test the model
 test_cmd = [
-    python_cmd, "testvis.py",
+    python_cmd, "test.py",
     str(model_test), str(cur_fold), "Z",
     str(ZMAX), str(YMAX), str(XMAX), str(HIGH_RANGE), str(LOW_RANGE), str(MARGIN), str(vis)
 ]
@@ -79,7 +79,7 @@ elif command_to_run == "train":
     print("Running train.py...")
     subprocess.run(train_cmd)
 elif command_to_run == "test":
-    print("Running testvis.py...")
+    print("Running test.py...")
     subprocess.run(test_cmd)
 else:
     print("Invalid command:", command_to_run)

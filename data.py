@@ -61,6 +61,7 @@ def create_train_data(current_fold):
         raise ValueError('slice number does not equal mask number!')
 
     total = len(create_slice_list)
+    val_count = int(total * 0.1)
 
     images_list_normalized = np.ndarray((total, XMAX, YMAX), dtype=np.float32)
     masks_list_normalized = np.ndarray((total, XMAX, YMAX), dtype=np.float32)
@@ -91,24 +92,32 @@ def create_train_data(current_fold):
         images_list_normalized[i] = pad_2d(cropped_image, 0, XMAX, YMAX)
         masks_list_normalized[i] = pad_2d(cropped_mask, 0, XMAX, YMAX)
 
-        # images_list_normalized[i] = pad_2d(current_image, 0, XMAX, YMAX)
-        # masks_list_normalized[i] = pad_2d(current_mask, 0, XMAX, YMAX)
-
-        # images_list_normalized[i] = current_image
-        # masks_list_normalized[i] = current_mask
-
         if i % 100 == 0:
             print(f'Done: {i}/{total} slices')
 
-    torch.save((torch.tensor(images_list_normalized), torch.tensor(masks_list_normalized)),
+    train_images = torch.tensor(images_list_normalized[:-val_count])
+    train_masks = torch.tensor(masks_list_normalized[:-val_count])
+    val_images = torch.tensor(images_list_normalized[-val_count:])
+    val_masks = torch.tensor(masks_list_normalized[-val_count:])
+
+    torch.save((train_images, train_masks, val_images, val_masks),
                os.path.join(data_path, f'dataset/train_dataset_fold_{current_fold}_plane_Z.pt'))
+
+    # torch.save((torch.tensor(images_list_normalized), torch.tensor(masks_list_normalized)),
+    #            os.path.join(data_path, f'dataset/train_dataset_fold_{current_fold}_plane_Z.pt'))
 
     print(f'Training data created for fold {current_fold}, plane Z')
 
 
-def load_train_data(fold):
-    images, masks = torch.load(os.path.join(data_path, f'dataset/train_dataset_fold_{fold}_plane_Z.pt'))
-    return PrepareDataset(images, masks)
+def load_train_and_val_data(fold):
+    train_images, train_masks, val_images, val_masks = torch.load(os.path.join(data_path, f'dataset/train_dataset_fold_{fold}_plane_Z.pt'))
+    train_dataset = PrepareDataset(train_images, train_masks)
+    val_dataset = PrepareDataset(val_images, val_masks)
+    return train_dataset, val_dataset
+
+# def load_train_data(fold):
+#     images, masks = torch.load(os.path.join(data_path, f'dataset/train_dataset_fold_{fold}_plane_Z.pt'))
+#     return PrepareDataset(images, masks)
 
 
 if __name__ == '__main__':

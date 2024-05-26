@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import sys
+from sklearn.metrics import jaccard_score
 
 data_path = sys.argv[1]
 
@@ -9,34 +10,15 @@ image_path = os.path.join(data_path, 'images')
 mask_path = os.path.join(data_path, 'masks')
 list_path = os.path.join(data_path, 'lists')
 dataset_path = os.path.join(data_path, 'dataset')
-# another path just to push/pull to/from git
-model_path = 'models'
+execution_path = os.path.join(data_path, 'executions')
 
 # Ensure directories exist
-paths = [image_path, mask_path, list_path, model_path, dataset_path]
+paths = [image_path, mask_path, list_path, dataset_path, execution_path]
 for path in paths:
     if not os.path.exists(path):
         os.makedirs(path)
 
 list_training = os.path.join(data_path, 'training_Z' + '.txt')
-
-
-def preprocess(images):
-    """add one more axis as tf require"""
-    images = images[..., np.newaxis]
-    return images
-
-
-def preprocess_front(images):
-    images = images[np.newaxis, ...]
-    return images
-
-
-# returning the binary mask map by the organ ID (especially useful under overlapping cases)
-#   mask: the mask matrix
-#   organ_ID: the organ ID
-def is_organ(mask, organ_ID):
-    return mask == organ_ID
 
 
 def normalize_image(image, low_range, high_range):
@@ -81,3 +63,19 @@ def DSC_computation(mask, pred):
     mask_sum = mask.sum()
     inter_sum = np.logical_and(pred, mask).sum()
     return 2 * float(inter_sum) / (pred_sum + mask_sum), inter_sum, pred_sum, mask_sum
+
+
+# New function to calculate IoU
+def iou_score(y_true, y_pred):
+    y_true_f = y_true.view(-1).cpu().numpy()
+    y_pred_f = y_pred.view(-1).detach().cpu().numpy()
+    y_pred_f = (y_pred_f > 0.5).astype(np.uint8)
+    return jaccard_score(y_true_f, y_pred_f)
+
+
+def get_next_execution_id():
+    existing_ids = [int(d.split('_')[1]) for d in os.listdir(execution_path) if d.startswith('execution_')]
+    if not existing_ids:
+        return 1
+    return max(existing_ids) + 1
+

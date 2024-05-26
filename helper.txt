@@ -1,0 +1,38 @@
+Learning Rate
+Când să crești rata de învățare:
+    Modelul tău converge foarte încet, adică pierderea (loss) scade foarte lent.
+    Te afli la începutul antrenării și dorești ca modelul să învețe rapid caracteristici de bază.
+Când să scazi rata de învățare:
+    Modelul tău oscilează sau diverge, adică pierderea fluctuează foarte mult sau crește.
+    Te afli spre sfârșitul antrenării și dorești să rafinezi ajustările greutăților pentru a ajunge la o convergență fină.
+
+Batch Size
+Când să crești dimensiunea batch-ului:
+    Modelul tău converge rapid și ai nevoie de o evaluare mai stabilă a gradientului.
+    Ai acces la resurse de calcul puternice (GPU-uri) și vrei să beneficiezi de paralelism.
+Când să scazi dimensiunea batch-ului:
+    Resursele tale de calcul sunt limitate și ai probleme de memorie.
+    Observi că modelul tău se supra-antrenează (overfitting) pe datele de antrenament. Dimensiunile batch-urilor mai mici pot introduce mai multă zgomot în gradient și pot ajuta la regularizare.
+
+Smooth (Regularization Parameter)
+Când să crești valoarea de smooth:
+    Modelul tău supra-antrenează, adică performanța pe setul de validare este mult mai slabă decât pe setul de antrenament.
+    Observi că modelul tău este prea sensibil la zgomotul din datele de antrenament.
+Când să scazi valoarea de smooth:
+    Modelul tău nu învață suficient de bine, adică performanța pe setul de antrenament este slabă.
+    Te afli spre sfârșitul antrenării și dorești să faci ajustări fine la greutăți pentru a îmbunătăți performanța.
+
+Epoch
+Când să crești numărul de epoci
+Modelul nu a convergent încă:
+    Dacă pierderea (loss) continuă să scadă constant și metricile de performanță (precum coeficientul Dice sau IoU) continuă să se îmbunătățească, atunci modelul tău încă învață și ar putea beneficia de mai multe epoci de antrenare.
+    Dacă graficele de pierdere și metrici nu s-au stabilizat, mai multe epoci ar putea ajuta modelul să ajungă la o performanță mai bună.
+
+Underfitting:
+    Dacă atât pierderea pe setul de antrenament cât și pe setul de validare sunt mari, modelul nu a învățat suficient din date. În acest caz, creșterea numărului de epoci poate ajuta.
+
+Când să scazi numărul de epoci
+Modelul s-a supra-antrenat:
+    Dacă performanța pe setul de antrenament este semnificativ mai bună decât pe setul de validare și pierderea pe setul de validare începe să crească după ce a atins un minim, modelul tău s-a supra-antrenat. În acest caz, ar trebui să scazi numărul de epoci sau să implementezi tehnici de regularizare (de exemplu, dropout).
+    Pierderea și metricile s-au stabilizat:
+    Dacă pierderea și metricile de performanță nu se mai îmbunătățesc după un anumit număr de epoci, continuarea antrenării nu va aduce beneficii suplimentare și poate duce la supra-antrenare. În acest caz, numărul de epoci poate fi redus.
