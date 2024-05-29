@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from unet import UNet
-from utils import dice_coefficient, iou_score, predicted_path
+from utils import dice_coefficient, iou_score, precision_score
 from data import load_test_data
 import matplotlib.pyplot as plt
 
@@ -30,12 +30,12 @@ def save_image(image, mask, output, save_dir, idx):
     plt.close(fig)
 
 
-def test(model_path, fold, smooth):
-    logging.info(f'\t\tStarting testing for fold {fold}')
+def test():
+    logging.info(f'\t\tStarting testing for percent = {percent}')
 
     # Load test data
     logging.info('\t\tLoading and preprocessing test data...')
-    test_dataset = load_test_data(fold)
+    test_dataset = load_test_data(test_dataloader_path, percent, low_range, high_range)
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # Load the model
@@ -44,9 +44,15 @@ def test(model_path, fold, smooth):
     model.load_state_dict(torch.load(model_path))
     model.eval()
 
+    # Create directory for saving predictions
+    model_name = os.path.splitext(os.path.basename(model_path))[0]
+    predicted_model_dir = os.path.join(predicted_path, model_name)
+    os.makedirs(predicted_model_dir, exist_ok=True)
+
     # Metrics
     test_dice = 0
     test_iou = 0
+    test_precision = 0
 
     # Testing loop
     logging.info('\t\tEvaluating the model...')
@@ -58,27 +64,39 @@ def test(model_path, fold, smooth):
                 outputs = model(images)
 
                 save_image(images.cpu().numpy().squeeze(), masks.cpu().numpy().squeeze(),
-                           outputs.cpu().numpy().squeeze(), predicted_path, idx)
+                           outputs.cpu().numpy().squeeze(), predicted_model_dir, idx)
 
                 # Calculate metrics
                 dice = dice_coefficient(masks, outputs, smooth).item()
                 iou = iou_score(masks, outputs)
+                precision = precision_score(masks.cpu().numpy().squeeze(), outputs.cpu().numpy().squeeze())
+
                 test_dice += dice
                 test_iou += iou
+                test_precision += precision
 
                 pbar.update(1)
+
     test_dice /= len(test_loader)
     test_iou /= len(test_loader)
-    logging.info(f'Testing completed - Fold {fold}, Dice: {test_dice}, IoU: {test_iou}')
+    test_precision /= len(test_loader)
+    logging.info(f'Testing completed - percent {percent}, Dice: {test_dice}, IoU: {test_iou}, Precision: {test_precision}')
 
 
 if __name__ == "__main__":
-
-    data_path = sys.argv[1]
-    fold = int(sys.argv[2])
+    test_dataloader_path = sys.argv[1]
+    predicted_path = sys.argv[2]
     model_path = sys.argv[3]
-    smooth = float(sys.argv[4])
+
+    percent = int(sys.argv[4])
+    smooth = float(sys.argv[5])
+    low_range = int(sys.argv[6])
+    high_range = int(sys.argv[7])
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    test(model_path, fold, smooth)
+    if torch.cuda.is_available():
+        test()
+        print("Testing done")
+    else:
+        print("Can't start on gpu")
 

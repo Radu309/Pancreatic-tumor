@@ -4,21 +4,21 @@ from sklearn.metrics import jaccard_score
 
 
 # returning the filename of the training set according to the current fold ID
-def training_set_filename(lists_path, current_fold):
-    return os.path.join(lists_path, 'training_fold_' + str(current_fold) + '.txt')
+def training_set_filename(lists_path, percent):
+    return os.path.join(lists_path, 'training_' + str(percent) + '%_of_data' + '.txt')
 
 
 # returning the filename of the testing set according to the current fold ID
-def testing_set_filename(lists_path, current_fold):
-    return os.path.join(lists_path, 'testing_fold_' + str(current_fold) + '.txt')
+def testing_set_filename(lists_path, percent):
+    return os.path.join(lists_path, 'testing_' + str(100-percent) + '%_of_data' + '.txt')
 
 
-def in_training_set(total_samples, i, folds, current_fold):
-    fold_remainder = folds - total_samples % folds
-    fold_size = (total_samples - total_samples % folds) / folds
-    start_index = fold_size * current_fold + max(0, current_fold - fold_remainder)
-    end_index = fold_size * (current_fold + 1) + max(0, current_fold + 1 - fold_remainder)
-    return not (start_index <= i < end_index)
+def in_training_set(total_samples, i, percent):
+    if percent < 0 or percent > 100:
+        raise ValueError("Percentage must be between 0 and 100.")
+
+    training_threshold = (total_samples * percent) / 100
+    return 0 <= i < training_threshold
 
 
 def normalize_image(image, low_range, high_range):
@@ -46,3 +46,8 @@ def iou_score(y_true, y_pred):
     return jaccard_score(y_true_f, y_pred_f)
 
 
+def precision_score(y_true, y_pred):
+    true_positives = (y_true * y_pred).sum()
+    predicted_positives = y_pred.sum()
+    precision = true_positives / (predicted_positives + 1e-8)  # Add small value to avoid division by zero
+    return precision

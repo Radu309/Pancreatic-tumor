@@ -120,29 +120,27 @@ def slice_data():
 
     # create the 4 training image lists
     print('Writing training image list.')
-    for fold in range(folds):
-        list_dataset_ = training_set_filename(lists_path, fold)
-        output = open(list_dataset_, 'w')
-        for i in range(total_samples):
-            if in_training_set(total_samples, i, folds, fold):
-                output.write(str(i) + ' ' + image_list[i] + ' ' + mask_list[i] + '\n')
-        output.close()
+    list_dataset_ = training_set_filename(lists_path, percent)
+    output = open(list_dataset_, 'w')
+    for i in range(total_samples):
+        if in_training_set(total_samples, i, percent):
+            output.write(str(i) + ' ' + image_list[i] + ' ' + mask_list[i] + '\n')
+    output.close()
 
     # create the 4 test image lists
     print('Writing testing image list.')
-    for fold in range(folds):
-        list_testing_ = testing_set_filename(lists_path, fold)
-        output = open(list_testing_, 'w')
-        for i in range(total_samples):
-            if not in_training_set(total_samples, i, folds, fold):
-                output.write(str(i) + ' ' + image_list[i] + ' ' + mask_list[i] + '\n')
-        output.close()
+    list_testing_ = testing_set_filename(lists_path, percent)
+    output = open(list_testing_, 'w')
+    for i in range(total_samples):
+        if not in_training_set(total_samples, i, percent):
+            output.write(str(i) + ' ' + image_list[i] + ' ' + mask_list[i] + '\n')
+    output.close()
 
     print('Initialization is done.')
 
 
 if __name__ == '__main__':
-    folds = int(sys.argv[1])
+    percent = int(sys.argv[1])
     low_range = int(sys.argv[2])
     high_range = int(sys.argv[3])
     image_npy_path = sys.argv[4]

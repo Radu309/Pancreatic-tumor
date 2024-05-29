@@ -1,4 +1,6 @@
 import logging
+import sys
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -15,23 +17,23 @@ from data import load_train_and_val_data
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-def train(fold):
+def train():
     logging.info(f'''Starting training:
         Epochs:          {epochs}
         Batch size:      {batch_size}
         Learning rate:   {learning_rate}
         Smooth:          {smooth}
         Device:          {device}
-        Model's path:    {current_models_path}
+        Model's path:    {models_path}
     ''')
     # Initialize TensorBoard
-    writer_log_dir = os.path.join(current_logs_path, f'fold-{fold}_ep-{epochs}_lr-{learning_rate}_bs-{batch_size}')
+    writer_log_dir = os.path.join(metrics_path, f'train_{percent}%_ep-{epochs}_lr-{learning_rate}_bs-{batch_size}')
     writer = SummaryWriter(log_dir=f'{writer_log_dir}')
 
     # --------------------- load and preprocess training data -----------------
     logging.info('\t\tLoading and preprocessing train data...')
 
-    train_dataset, val_dataset = load_train_and_val_data(fold)
+    train_dataset, val_dataset = load_train_and_val_data(train_dataloader_path, percent, low_range, high_range)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
     validation_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
@@ -110,29 +112,28 @@ def train(fold):
 
         # Save the model at regular intervals
         if (epoch + 1) % 10 == 0:
-            model_save_path = os.path.join(current_models_path,
-                                           f'fold-{fold}_ep-{epoch + 1}_lr-{learning_rate}_bs-{batch_size}.pth')
+            model_save_path = os.path.join(models_path,
+                                           f'train-{percent}%_ep-{epoch + 1}_lr-{learning_rate}_bs-{batch_size}.pth')
             torch.save(model.state_dict(), model_save_path)
     writer.close()
 
 
 if __name__ == "__main__":
-    data_path = sys.argv[1]
-    folds = int(sys.argv[2])
-    epochs = int(sys.argv[3])
-    learning_rate = float(sys.argv[4])
-    smooth = float(sys.argv[5])
-    batch_size = int(sys.argv[6])
+    train_dataloader_path = sys.argv[1]
+    models_path = sys.argv[2]
+    metrics_path = sys.argv[3]
+
+    percent = int(sys.argv[4])
+    epochs = int(sys.argv[5])
+    learning_rate = float(sys.argv[6])
+    smooth = float(sys.argv[7])
+    batch_size = int(sys.argv[8])
+    low_range = int(sys.argv[9])
+    high_range = int(sys.argv[10])
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if torch.cuda.is_available():
-        next_execution_id = get_next_execution_id()
-        current_models_path = os.path.join(model_path, f'execution_{next_execution_id}', 'models')
-        current_logs_path = os.path.join(model_path, f'execution_{next_execution_id}', 'runs')
-        os.makedirs(current_models_path, exist_ok=True)
-        os.makedirs(current_logs_path, exist_ok=True)
-        for fold_nr in range(folds):
-            train(fold_nr)
+        train()
         print("Training done")
     else:
         print("Can't start on gpu")
