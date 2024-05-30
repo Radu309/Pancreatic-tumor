@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import os
 import sys
-from utils import training_set_filename, testing_set_filename, normalize_image, pad_2d
+from utils import *
 
 
 class PrepareDataset(torch.utils.data.Dataset):
@@ -25,16 +25,16 @@ class PrepareDataset(torch.utils.data.Dataset):
 
 def create_data(data_type):
     if data_type == 'train':
-        images_list = open(training_set_filename(lists_path, percent), 'r').read().splitlines()
+        images_list = open(training_set_filename(slice_file, slice_total), 'r').read().splitlines()
     else:
-        images_list = open(testing_set_filename(lists_path, percent), 'r').read().splitlines()
+        images_list = open(testing_set_filename(slice_file, slice_total), 'r').read().splitlines()
 
     image_set = np.zeros((len(images_list)), dtype=int)
     for i in range(len(images_list)):
         s = images_list[i].split(' ')
         image_set[i] = int(s[0])
 
-    slice_list = open(list_dataset, 'r').read().splitlines()
+    slice_list = open(LIST_DATASET, 'r').read().splitlines()
     slices = len(slice_list)
     image_ID = np.zeros(slices, dtype=int)
     slice_ID = np.zeros(slices, dtype=int)
@@ -103,45 +103,41 @@ def create_data(data_type):
         val_masks = torch.tensor(masks_list_normalized[-val_count:])
 
         torch.save((train_images, train_masks, val_images, val_masks),
-                   os.path.join(train_dataloader_path, f'train_{percent}%_LR-{low_range}_HR-{high_range}.pt'))
-        print(f'Training data created for percent = {percent}')
+                   os.path.join(DATALOADER_PATH, f'training_{slice_file}_of_{slice_total}.pt'))
+        print(f'Training data created for slice file number = {slice_file}_of_{slice_total}')
     else:
         test_images = torch.tensor(images_list_normalized)
         test_masks = torch.tensor(masks_list_normalized)
 
         torch.save((test_images, test_masks),
-                   os.path.join(test_dataloader_path, f'test_{100-percent}%_LR-{low_range}_HR-{high_range}.pt'))
-        print(f'Testing data created for percent = {percent}')
+                   os.path.join(DATALOADER_PATH, f'testing_{slice_file}_of_{slice_total}.pt'))
+        print(f'Testing data created for slice file number = {slice_file}_of_{slice_total}')
 
 
-def load_train_and_val_data(path, current_percent, lr, hr):
+def load_train_and_val_data(slice_file_, slice_total_):
     train_images, train_masks, val_images, val_masks = (
-        torch.load(os.path.join(path, f'train_{current_percent}%_LR-{lr}_HR-{hr}.pt')))
+        torch.load(os.path.join(DATALOADER_PATH, f'training_{slice_file_}_of_{slice_total_}.pt')))
     train_dataset = PrepareDataset(train_images, train_masks)
     val_dataset = PrepareDataset(val_images, val_masks)
     return train_dataset, val_dataset
 
 
-def load_test_data(path, current_percent, lr, hr):
+def load_test_data(slice_file_, slice_total_):
     test_images, test_masks = (
-        torch.load(os.path.join(path, f'test_{100-current_percent}%_LR-{lr}_HR-{hr}.pt')))
+        torch.load(os.path.join(DATALOADER_PATH, f'testing_{slice_file_}_of_{slice_total_}.pt')))
     test_dataset = PrepareDataset(test_images, test_masks)
     return test_dataset
 
 
 if __name__ == '__main__':
-    list_dataset = sys.argv[1]
-    lists_path = sys.argv[2]
-    train_dataloader_path = sys.argv[3]
-    test_dataloader_path = sys.argv[4]
-
-    percent = int(sys.argv[5])
-    Z_MAX = int(sys.argv[6])
-    Y_MAX = int(sys.argv[7])
-    X_MAX = int(sys.argv[8])
-    margin = int(sys.argv[9])
-    low_range = int(sys.argv[10])
-    high_range = int(sys.argv[11])
+    slice_file = int(sys.argv[1])
+    slice_total = int(sys.argv[2])
+    Z_MAX = int(sys.argv[3])
+    Y_MAX = int(sys.argv[4])
+    X_MAX = int(sys.argv[5])
+    margin = int(sys.argv[6])
+    low_range = int(sys.argv[7])
+    high_range = int(sys.argv[8])
 
     create_data('train')
     create_data('test')

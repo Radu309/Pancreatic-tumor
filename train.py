@@ -24,16 +24,17 @@ def train():
         Learning rate:   {learning_rate}
         Smooth:          {smooth}
         Device:          {device}
-        Model's path:    {models_path}
+        Model's path:    {MODELS_PATH}
     ''')
     # Initialize TensorBoard
-    writer_log_dir = os.path.join(metrics_path, f'train_{percent}%_ep-{epochs}_lr-{learning_rate}_bs-{batch_size}')
+    writer_log_dir = os.path.join(METRICS_PATH,
+                                  f'training_{slice_file}_of_{slice_total}_ep-{epochs}_lr-{learning_rate}_bs-{batch_size}')
     writer = SummaryWriter(log_dir=f'{writer_log_dir}')
 
     # --------------------- load and preprocess training data -----------------
     logging.info('\t\tLoading and preprocessing train data...')
 
-    train_dataset, val_dataset = load_train_and_val_data(train_dataloader_path, percent, low_range, high_range)
+    train_dataset, val_dataset = load_train_and_val_data(slice_file, slice_total)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
     validation_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
@@ -112,24 +113,22 @@ def train():
 
         # Save the model at regular intervals
         if (epoch + 1) % 10 == 0:
-            model_save_path = os.path.join(models_path,
-                                           f'train-{percent}%_ep-{epoch + 1}_lr-{learning_rate}_bs-{batch_size}.pth')
+            model_save_path = os.path.join(
+                MODELS_PATH,
+                f'training_{slice_file}_of_{slice_total}_ep-{epoch + 1}_lr-{learning_rate}_bs-{batch_size}.pth'
+            )
             torch.save(model.state_dict(), model_save_path)
     writer.close()
 
 
 if __name__ == "__main__":
-    train_dataloader_path = sys.argv[1]
-    models_path = sys.argv[2]
-    metrics_path = sys.argv[3]
 
-    percent = int(sys.argv[4])
-    epochs = int(sys.argv[5])
-    learning_rate = float(sys.argv[6])
-    smooth = float(sys.argv[7])
-    batch_size = int(sys.argv[8])
-    low_range = int(sys.argv[9])
-    high_range = int(sys.argv[10])
+    slice_file = int(sys.argv[1])
+    slice_total = int(sys.argv[2])
+    epochs = int(sys.argv[3])
+    learning_rate = float(sys.argv[4])
+    smooth = float(sys.argv[5])
+    batch_size = int(sys.argv[6])
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if torch.cuda.is_available():

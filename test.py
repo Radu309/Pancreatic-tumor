@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from unet import UNet
-from utils import dice_coefficient, iou_score, precision_score
+from utils import dice_coefficient, iou_score, precision_score, PREDICTED_PATH
 from data import load_test_data
 import matplotlib.pyplot as plt
 
@@ -31,11 +31,11 @@ def save_image(image, mask, output, save_dir, idx):
 
 
 def test():
-    logging.info(f'\t\tStarting testing for percent = {percent}')
+    logging.info(f'\t\tStarting testing for slice file = {slice_file}_of_{slice_total}')
 
     # Load test data
     logging.info('\t\tLoading and preprocessing test data...')
-    test_dataset = load_test_data(test_dataloader_path, percent, low_range, high_range)
+    test_dataset = load_test_data(slice_file, slice_total)
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # Load the model
@@ -46,7 +46,7 @@ def test():
 
     # Create directory for saving predictions
     model_name = os.path.splitext(os.path.basename(model_path))[0]
-    predicted_model_dir = os.path.join(predicted_path, model_name)
+    predicted_model_dir = os.path.join(PREDICTED_PATH, model_name)
     os.makedirs(predicted_model_dir, exist_ok=True)
 
     # Metrics
@@ -80,15 +80,14 @@ def test():
     test_dice /= len(test_loader)
     test_iou /= len(test_loader)
     test_precision /= len(test_loader)
-    logging.info(f'Testing completed - percent {percent}, Dice: {test_dice}, IoU: {test_iou}, Precision: {test_precision}')
+    logging.info(f'Testing completed - percent {slice_file}_of_{slice_total}, Precision: {test_precision}')
 
 
 if __name__ == "__main__":
-    test_dataloader_path = sys.argv[1]
-    predicted_path = sys.argv[2]
+    slice_file = int(sys.argv[1])
+    slice_total = int(sys.argv[2])
     model_path = sys.argv[3]
 
-    percent = int(sys.argv[4])
     smooth = float(sys.argv[5])
     low_range = int(sys.argv[6])
     high_range = int(sys.argv[7])

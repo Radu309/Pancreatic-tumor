@@ -4,37 +4,11 @@
 import sys
 import os
 import subprocess
-
-
-data_path = "data/Pancreas_Segmentation"
-
-# Define paths at the module level
-dataset_path = os.path.join(data_path, 'dataset')
-image_path = os.path.join(dataset_path, 'images')
-mask_path = os.path.join(dataset_path, 'masks')
-image_npy_path = os.path.join(dataset_path, 'NPY_Images')
-mask_npy_path = os.path.join(dataset_path, 'NPY_Masks')
-
-dataloader_path = os.path.join(data_path, 'dataloader')
-train_dataloader_path = os.path.join(dataloader_path, 'train')
-test_dataloader_path = os.path.join(dataloader_path, 'test')
-
-lists_path = os.path.join(data_path, 'lists')
-models_path = os.path.join(data_path, 'models')
-metrics_path = os.path.join(data_path, 'metrics')
-predicted_path = os.path.join(data_path, 'predicted')
-
-# Ensure directories exist
-paths = [dataset_path, image_path, mask_path, image_npy_path, mask_npy_path, dataloader_path,
-         train_dataloader_path, test_dataloader_path, lists_path, models_path, metrics_path, predicted_path]
-for path in paths:
-    if not os.path.exists(path):
-        os.makedirs(path)
-
-list_dataset = os.path.join(lists_path, 'dataset' + '.txt')
+from utils import MODELS_PATH
 
 # Parameters
-PERCENT = 75                    # HOW TO SLICE THE DATA IN TRAIN AND TEST: X_TRAIN; 100-X_TEST
+SLICE_TOTAL = 4                     # 4 OR 5
+SLICE_FILE = 3                      # HOW TO SLICE THE DATA IN TRAIN AND TEST: X_TRAIN; 100-X_TEST
 LOW_RANGE = -100
 HIGH_RANGE = 240
 MARGIN = 20
@@ -45,8 +19,8 @@ EPOCHS = 100
 BATCH_SIZE = 16
 LEARNING_RATE = 1e-5
 SMOOTH = 1e-3
-MODEL_PATH = (f'data/Pancreas_Segmentation/models/'
-              f'train-{PERCENT}%_ep-{EPOCHS}_lr-{LEARNING_RATE}_bs-{BATCH_SIZE}.pth')
+MODEL_PATH = (MODELS_PATH,
+              f'training_{SLICE_FILE}_of_{SLICE_TOTAL}_ep-{EPOCHS}_lr-{LEARNING_RATE}_bs-{BATCH_SIZE}.pth')
 # vis = False
 
 # Programs
@@ -60,31 +34,28 @@ convert_cmd = [
 # Slice the 3D volume to 2D slices
 slice_cmd = [
     python_cmd, "slice.py",
-    str(PERCENT), str(LOW_RANGE), str(HIGH_RANGE), str(image_npy_path), str(image_path),
-    str(mask_npy_path), str(mask_path), str(list_dataset), str(lists_path)
+    str(LOW_RANGE), str(HIGH_RANGE)
 ]
 
 # Create data for training
 data_cmd = [
     python_cmd, "data.py",
-    str(list_dataset), str(lists_path), str(train_dataloader_path), str(test_dataloader_path), str(PERCENT),
-    str(Z_MAX), str(Y_MAX), str(X_MAX), str(MARGIN), str(LOW_RANGE), str(HIGH_RANGE)
+    str(SLICE_FILE), str(SLICE_TOTAL), str(Z_MAX), str(Y_MAX),
+    str(X_MAX), str(MARGIN), str(LOW_RANGE), str(HIGH_RANGE)
 ]
 
 # Train the model
 train_cmd = [
     python_cmd, "train.py",
-    str(train_dataloader_path), str(models_path),  str(metrics_path),
-    str(PERCENT), str(EPOCHS), str(LEARNING_RATE), str(SMOOTH), str(BATCH_SIZE),
-    str(LOW_RANGE), str(HIGH_RANGE)
+    str(SLICE_FILE), str(SLICE_TOTAL), str(EPOCHS), str(LEARNING_RATE),
+    str(SMOOTH), str(BATCH_SIZE)
 ]
 
 # Test the model
 test_cmd = [
     python_cmd, "test.py",
-    str(test_dataloader_path), str(predicted_path), str(MODEL_PATH),
-    str(PERCENT), str(SMOOTH),
-    str(LOW_RANGE), str(HIGH_RANGE)
+    str(SLICE_FILE), str(SLICE_TOTAL), str(MODEL_PATH),
+    str(SMOOTH), str(LOW_RANGE), str(HIGH_RANGE)
 ]
 
 # Select which command to run based on command line arguments

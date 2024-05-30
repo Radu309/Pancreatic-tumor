@@ -1,24 +1,54 @@
+import sys
+
 import numpy as np
 import os
 from sklearn.metrics import jaccard_score
 
+DATA_PATH = "data/Pancreas_Segmentation"
+
+# Define paths at the module level
+DATASET_PATH = os.path.join(DATA_PATH, 'dataset')
+IMAGE_PATH = os.path.join(DATASET_PATH, 'images')
+MASK_PATH = os.path.join(DATASET_PATH, 'masks')
+IMAGE_NPY_PATH = os.path.join(DATASET_PATH, 'NPY_Images')
+MASK_NPY_PATH = os.path.join(DATASET_PATH, 'NPY_Masks')
+IMAGE_CT_PATH = os.path.join(DATASET_PATH, 'CT_Images')
+MASK_CT_PATH = os.path.join(DATASET_PATH, 'CT_Masks')
+
+DATALOADER_PATH = os.path.join(DATA_PATH, 'dataloader')
+TRAIN_DATALOADER_PATH = os.path.join(DATALOADER_PATH, 'train')
+TEST_DATALOADER_PATH = os.path.join(DATALOADER_PATH, 'test')
+
+LISTS_PATH = os.path.join(DATA_PATH, 'lists')
+MODELS_PATH = os.path.join(DATA_PATH, 'models')
+METRICS_PATH = os.path.join(DATA_PATH, 'metrics')
+PREDICTED_PATH = os.path.join(DATA_PATH, 'predicted')
+
+paths = [DATASET_PATH, IMAGE_PATH, MASK_PATH, IMAGE_NPY_PATH, MASK_NPY_PATH, DATALOADER_PATH,
+         TRAIN_DATALOADER_PATH, TEST_DATALOADER_PATH, LISTS_PATH, MODELS_PATH, METRICS_PATH, PREDICTED_PATH]
+for path in paths:
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+LIST_DATASET = os.path.join(LISTS_PATH, 'dataset' + '.txt')
+
 
 # returning the filename of the training set according to the current fold ID
-def training_set_filename(lists_path, percent):
-    return os.path.join(lists_path, 'training_' + str(percent) + '%_of_data' + '.txt')
+def training_set_filename(file_sliced, total):
+    return os.path.join(LISTS_PATH, f'training_{file_sliced}_of_{total}.txt')
 
 
 # returning the filename of the testing set according to the current fold ID
-def testing_set_filename(lists_path, percent):
-    return os.path.join(lists_path, 'testing_' + str(100-percent) + '%_of_data' + '.txt')
+def testing_set_filename(file_sliced, total):
+    return os.path.join(LISTS_PATH, f'testing_{file_sliced}_of_{total}.txt')
 
 
-def in_training_set(total_samples, i, percent):
-    if percent < 0 or percent > 100:
-        raise ValueError("Percentage must be between 0 and 100.")
-
-    training_threshold = (total_samples * percent) / 100
-    return 0 <= i < training_threshold
+def in_training_set(total_samples, i, slices, current_fold):
+    fold_remainder = slices - total_samples % slices
+    fold_size = (total_samples - total_samples % slices) / slices
+    start_index = fold_size * current_fold + max(0, current_fold - fold_remainder)
+    end_index = fold_size * (current_fold + 1) + max(0, current_fold + 1 - fold_remainder)
+    return not (start_index <= i < end_index)
 
 
 def normalize_image(image, low_range, high_range):

@@ -6,14 +6,14 @@ from utils import *
 def slice_data():
     image_list = []
     image_filename = []
-    for directory, _, file_ in os.walk(image_npy_path):
+    for directory, _, file_ in os.walk(IMAGE_NPY_PATH):
         for filename in sorted(file_):
             image_list.append(os.path.join(directory, filename))
             image_filename.append(os.path.splitext(filename)[0])
 
     mask_list = []
     mask_filename = []
-    for directory, _, file_ in os.walk(mask_npy_path):
+    for directory, _, file_ in os.walk(MASK_NPY_PATH):
         for filename in sorted(file_):
             mask_list.append(os.path.join(directory, filename))
             mask_filename.append(os.path.splitext(filename)[0])
@@ -23,10 +23,10 @@ def slice_data():
 
     total_samples = len(image_list)
 
-    directory = os.path.dirname(list_dataset)
+    directory = os.path.dirname(LIST_DATASET)
     if not os.path.exists(directory):
         os.makedirs(directory)
-    output = open(list_dataset, 'w')
+    output = open(LIST_DATASET, 'w')
     output.close()
 
     print('Initialization starts.')
@@ -41,11 +41,11 @@ def slice_data():
         # slice_number is the number of slices of corresponding dimension (X/Y/Z) [Z for now]
         slice_number = mask.shape[2]
 
-        image_directory_ = os.path.join(images_path, image_filename[i])
+        image_directory_ = os.path.join(IMAGE_PATH, image_filename[i])
         if not os.path.exists(image_directory_):
             os.makedirs(image_directory_)
 
-        mask_directory_ = os.path.join(masks_path, mask_filename[i])
+        mask_directory_ = os.path.join(MASK_PATH, mask_filename[i])
         if not os.path.exists(mask_directory_):
             os.makedirs(mask_directory_)
 
@@ -76,9 +76,9 @@ def slice_data():
             image_[image_ > high_range] = high_range
 
             # save sliced image and mask
-            if not os.path.isfile(image_filename_) or not os.path.isfile(mask_filename_):
-                np.save(image_filename_, image_)
-                np.save(mask_filename_, mask_)
+            # if not os.path.isfile(image_filename_) or not os.path.isfile(mask_filename_):
+            #     np.save(image_filename_, image_)
+            #     np.save(mask_filename_, mask_)
 
             # compute the mean value of the slice
             average[j] = float(image_.sum()) / (image_.shape[0] * image_.shape[1])
@@ -103,7 +103,7 @@ def slice_data():
                 mask_directory_, '{:0>4}'.format(j) + '.npy')
 
             # append the following output to training_X/Y/Z.txt
-            with open(list_dataset, 'a+') as output:
+            with open(LIST_DATASET, 'a+') as output:
                 # we need to train images with pixels (100 is the minimum I selected)
                 if sum_[j] >= 100:
                     # case number, slice number
@@ -118,37 +118,33 @@ def slice_data():
 
         print(f"Processed {i + 1} out of {len(image_list)} files: {time.time() - start_time} second(s) elapsed.")
 
-    # create the 4 training image lists
-    print('Writing training image list.')
-    list_dataset_ = training_set_filename(lists_path, percent)
-    output = open(list_dataset_, 'w')
-    for i in range(total_samples):
-        if in_training_set(total_samples, i, percent):
-            output.write(str(i) + ' ' + image_list[i] + ' ' + mask_list[i] + '\n')
-    output.close()
-
-    # create the 4 test image lists
-    print('Writing testing image list.')
-    list_testing_ = testing_set_filename(lists_path, percent)
-    output = open(list_testing_, 'w')
-    for i in range(total_samples):
-        if not in_training_set(total_samples, i, percent):
-            output.write(str(i) + ' ' + image_list[i] + ' ' + mask_list[i] + '\n')
-    output.close()
+    # create training and testing image lists (for 80% and 75% training)
+    # slice total = 4 for 75% and 5 for 80%
+    # for training models with different data from the same dataset
+    # every slice file has a different order of data
+    # there are 9 files for 9 different models
+    # choose the best
+    print('Writing training image list and testing image list.')
+    for slices in [4, 5]:
+        for file_sliced in range(slices):
+            list_training_ = training_set_filename(file_sliced, slices)
+            list_testing_ = testing_set_filename(file_sliced, slices)
+            output_training = open(list_training_, 'w')
+            output_testing = open(list_testing_, 'w')
+            for i in range(total_samples):
+                if in_training_set(total_samples, i, slices, file_sliced):
+                    output_training.write(f"{i} {image_list[i]} {mask_list[i]}\n")
+                else:
+                    output_testing.write(f"{i} {image_list[i]} {mask_list[i]}\n")
+            output_training.close()
+            output_testing.close()
 
     print('Initialization is done.')
 
 
 if __name__ == '__main__':
-    percent = int(sys.argv[1])
-    low_range = int(sys.argv[2])
-    high_range = int(sys.argv[3])
-    image_npy_path = sys.argv[4]
-    images_path = sys.argv[5]
-    mask_npy_path = sys.argv[6]
-    masks_path = sys.argv[7]
-    list_dataset = sys.argv[8]
-    lists_path = sys.argv[9]
+    low_range = int(sys.argv[1])
+    high_range = int(sys.argv[2])
 
     slice_data()
-    
+
