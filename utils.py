@@ -16,16 +16,13 @@ IMAGE_CT_PATH = os.path.join(DATASET_PATH, 'CT_Images')
 MASK_CT_PATH = os.path.join(DATASET_PATH, 'CT_Masks')
 
 DATALOADER_PATH = os.path.join(DATA_PATH, 'dataloader')
-TRAIN_DATALOADER_PATH = os.path.join(DATALOADER_PATH, 'train')
-TEST_DATALOADER_PATH = os.path.join(DATALOADER_PATH, 'test')
-
 LISTS_PATH = os.path.join(DATA_PATH, 'lists')
 MODELS_PATH = os.path.join(DATA_PATH, 'models')
 METRICS_PATH = os.path.join(DATA_PATH, 'metrics')
 PREDICTED_PATH = os.path.join(DATA_PATH, 'predicted')
 
 paths = [DATASET_PATH, IMAGE_PATH, MASK_PATH, IMAGE_NPY_PATH, MASK_NPY_PATH, DATALOADER_PATH,
-         TRAIN_DATALOADER_PATH, TEST_DATALOADER_PATH, LISTS_PATH, MODELS_PATH, METRICS_PATH, PREDICTED_PATH]
+         LISTS_PATH, MODELS_PATH, METRICS_PATH, PREDICTED_PATH]
 for path in paths:
     if not os.path.exists(path):
         os.makedirs(path)

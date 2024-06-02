@@ -7,20 +7,19 @@ import subprocess
 from utils import MODELS_PATH
 
 # Parameters
-SLICE_TOTAL = 4                     # 4 OR 5
-SLICE_FILE = 3                      # HOW TO SLICE THE DATA IN TRAIN AND TEST: X_TRAIN; 100-X_TEST
+SLICE_TOTAL = 5                     # 4 OR 5
+SLICE_FILE = 1                      # HOW TO SLICE THE DATA IN TRAIN AND TEST: X_TRAIN; 100-X_TEST
 LOW_RANGE = -100
 HIGH_RANGE = 240
 MARGIN = 20
 Z_MAX = 160
 Y_MAX = 256
 X_MAX = 192
-EPOCHS = 100
+EPOCHS = 50
 BATCH_SIZE = 16
 LEARNING_RATE = 1e-5
 SMOOTH = 1e-3
-MODEL_PATH = (MODELS_PATH,
-              f'training_{SLICE_FILE}_of_{SLICE_TOTAL}_ep-{EPOCHS}_lr-{LEARNING_RATE}_bs-{BATCH_SIZE}.pth')
+MODEL_PATH = f'{MODELS_PATH}/training_{SLICE_FILE}_of_{SLICE_TOTAL}_ep-{EPOCHS}_lr-{LEARNING_RATE}_bs-{BATCH_SIZE}.pth'
 # vis = False
 
 # Programs
@@ -55,7 +54,7 @@ train_cmd = [
 test_cmd = [
     python_cmd, "test.py",
     str(SLICE_FILE), str(SLICE_TOTAL), str(MODEL_PATH),
-    str(SMOOTH), str(LOW_RANGE), str(HIGH_RANGE)
+    str(SMOOTH)
 ]
 
 # Select which command to run based on command line arguments

@@ -139,5 +139,7 @@ if __name__ == '__main__':
     low_range = int(sys.argv[7])
     high_range = int(sys.argv[8])
 
+    # for index in range(slice_total):
+    #     slice_file = index + 1
     create_data('train')
     create_data('test')

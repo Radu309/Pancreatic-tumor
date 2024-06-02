@@ -127,8 +127,8 @@ def slice_data():
     print('Writing training image list and testing image list.')
     for slices in [4, 5]:
         for file_sliced in range(slices):
-            list_training_ = training_set_filename(file_sliced, slices)
-            list_testing_ = testing_set_filename(file_sliced, slices)
+            list_training_ = training_set_filename(file_sliced+1, slices)
+            list_testing_ = testing_set_filename(file_sliced+1, slices)
             output_training = open(list_training_, 'w')
             output_testing = open(list_testing_, 'w')
             for i in range(total_samples):

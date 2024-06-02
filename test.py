@@ -1,3 +1,4 @@
+import csv
 import sys
 import os
 import logging
@@ -6,7 +7,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from unet import UNet
-from utils import dice_coefficient, iou_score, precision_score, PREDICTED_PATH
+from utils import dice_coefficient, iou_score, precision_score, PREDICTED_PATH, METRICS_PATH
 from data import load_test_data
 import matplotlib.pyplot as plt
 
@@ -49,38 +50,50 @@ def test():
     predicted_model_dir = os.path.join(PREDICTED_PATH, model_name)
     os.makedirs(predicted_model_dir, exist_ok=True)
 
-    # Metrics
-    test_dice = 0
-    test_iou = 0
-    test_precision = 0
-
-    # Testing loop
+    results_file_path = os.path.join(METRICS_PATH, f'{model_name}.csv')
     logging.info('\t\tEvaluating the model...')
-    with torch.no_grad():
-        with tqdm(total=len(test_loader), desc='Testing', unit='batch') as pbar:
+    with open(results_file_path, mode='w', newline='') as file:
+        writer = csv.writer(file, delimiter=';')  # Set the delimiter to semicolon
+        writer.writerow(['Batch Index', 'Dice Coefficient', 'IOU Score', 'Precision', 'Accuracy'])
+
+        total_dice = 0
+        total_iou = 0
+        total_precision = 0
+        total_accuracy = 0
+        with torch.no_grad(), tqdm(total=len(test_loader), desc='Testing', unit='batch') as pbar:
             for idx, (images, masks) in enumerate(test_loader):
                 images, masks = images.to(device), masks.to(device)
                 images = images.unsqueeze(1)
                 outputs = model(images)
+                outputs_prob = torch.sigmoid(outputs)
 
                 save_image(images.cpu().numpy().squeeze(), masks.cpu().numpy().squeeze(),
                            outputs.cpu().numpy().squeeze(), predicted_model_dir, idx)
 
-                # Calculate metrics
                 dice = dice_coefficient(masks, outputs, smooth).item()
                 iou = iou_score(masks, outputs)
                 precision = precision_score(masks.cpu().numpy().squeeze(), outputs.cpu().numpy().squeeze())
+                accuracy = (outputs_prob.round() == masks).float().mean().item()
 
-                test_dice += dice
-                test_iou += iou
-                test_precision += precision
+                writer.writerow([idx, dice, iou, precision, accuracy])
+
+                total_dice += dice
+                total_iou += iou
+                total_precision += precision
+                total_accuracy += accuracy
 
                 pbar.update(1)
 
-    test_dice /= len(test_loader)
-    test_iou /= len(test_loader)
-    test_precision /= len(test_loader)
-    logging.info(f'Testing completed - percent {slice_file}_of_{slice_total}, Precision: {test_precision}')
+        # Calculează mediile
+        mean_dice = total_dice / len(test_loader)
+        mean_iou = total_iou / len(test_loader)
+        mean_precision = total_precision / len(test_loader)
+        mean_accuracy = total_accuracy / len(test_loader)
+
+        # Scrie mediile în CSV
+        writer.writerow(['Average', mean_dice, mean_iou, mean_precision, mean_accuracy])
+
+    logging.info(f'Testing completed - percent {slice_file}_of_{slice_total}')
 
 
 if __name__ == "__main__":
@@ -88,9 +101,7 @@ if __name__ == "__main__":
     slice_total = int(sys.argv[2])
     model_path = sys.argv[3]
 
-    smooth = float(sys.argv[5])
-    low_range = int(sys.argv[6])
-    high_range = int(sys.argv[7])
+    smooth = float(sys.argv[4])
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if torch.cuda.is_available():
