@@ -31,13 +31,13 @@ LIST_DATASET = os.path.join(LISTS_PATH, 'dataset' + '.txt')
 
 
 # returning the filename of the training set according to the current fold ID
-def training_set_filename(file_sliced, total):
-    return os.path.join(LISTS_PATH, f'training_{file_sliced}_of_{total}.txt')
+def training_set_filename(slices):
+    return os.path.join(LISTS_PATH, f'training_{slices-1}_of_{slices}.txt')
 
 
 # returning the filename of the testing set according to the current fold ID
-def testing_set_filename(file_sliced, total):
-    return os.path.join(LISTS_PATH, f'testing_{file_sliced}_of_{total}.txt')
+def testing_set_filename(slices):
+    return os.path.join(LISTS_PATH, f'testing_1_of_{slices}.txt')
 
 
 def in_training_set(total_samples, i, slices, current_fold):
@@ -50,6 +50,19 @@ def in_training_set(total_samples, i, slices, current_fold):
 
 def normalize_image(image, low_range, high_range):
     return (image - low_range) / float(high_range - low_range)
+
+
+def crop_image(image):
+    crop_size = 400
+    half_crop_size = crop_size//2
+    center_x, center_y = image.shape[1] // 2, image.shape[0] // 2
+
+    # Calculate the coordinates for cropping
+    start_x = center_x - half_crop_size
+    start_y = center_y - half_crop_size
+    end_x = start_x + crop_size
+    end_y = start_y + crop_size
+    return image[start_y:end_y, start_x:end_x]
 
 
 def pad_2d(image, pad_val, xmax, ymax):
@@ -73,8 +86,23 @@ def iou_score(y_true, y_pred):
     return jaccard_score(y_true_f, y_pred_f)
 
 
-def precision_score(y_true, y_pred):
-    true_positives = (y_true * y_pred).sum()
-    predicted_positives = y_pred.sum()
-    precision = true_positives / (predicted_positives + 1e-8)  # Add small value to avoid division by zero
-    return precision
+def recall_score(true_mask, pred_mask):
+    tp = (true_mask * pred_mask).sum().float()
+    fn = (true_mask * (1 - pred_mask)).sum().float()
+    return tp / (tp + fn + 1e-10)
+
+
+def specificity_score(true_mask, pred_mask):
+    tn = ((1 - true_mask) * (1 - pred_mask)).sum().float()
+    fp = ((1 - true_mask) * pred_mask).sum().float()
+    return tn / (tn + fp + 1e-10)
+
+
+def f1_score(precision, recall):
+    return 2 * (precision * recall) / (precision + recall + 1e-10)
+
+
+def precision_score(true_mask, pred_mask):
+    tp = (true_mask * pred_mask).sum().float()
+    fp = ((1 - true_mask) * pred_mask).sum().float()
+    return tp / (tp + fp + 1e-10)

@@ -13,13 +13,13 @@ LOW_RANGE = -100
 HIGH_RANGE = 240
 MARGIN = 20
 Z_MAX = 160
-Y_MAX = 256
-X_MAX = 192
+Y_MAX = 400
+X_MAX = 400
 EPOCHS = 50
-BATCH_SIZE = 16
+BATCH_SIZE = 4
 LEARNING_RATE = 1e-5
 SMOOTH = 1e-3
-MODEL_PATH = f'{MODELS_PATH}/training_{SLICE_FILE}_of_{SLICE_TOTAL}_ep-{EPOCHS}_lr-{LEARNING_RATE}_bs-{BATCH_SIZE}.pth'
+MODEL_PATH = f'{MODELS_PATH}/training_{SLICE_TOTAL-1}_of_{SLICE_TOTAL}_ep-{EPOCHS}_lr-{LEARNING_RATE}_bs-{BATCH_SIZE}.pth'
 # vis = False
 
 # Programs
@@ -39,14 +39,14 @@ slice_cmd = [
 # Create data for training
 data_cmd = [
     python_cmd, "data.py",
-    str(SLICE_FILE), str(SLICE_TOTAL), str(Z_MAX), str(Y_MAX),
-    str(X_MAX), str(MARGIN), str(LOW_RANGE), str(HIGH_RANGE)
+    str(SLICE_TOTAL), str(Z_MAX), str(Y_MAX),
+    str(X_MAX), str(LOW_RANGE), str(HIGH_RANGE)
 ]
 
 # Train the model
 train_cmd = [
     python_cmd, "train.py",
-    str(SLICE_FILE), str(SLICE_TOTAL), str(EPOCHS), str(LEARNING_RATE),
+    str(SLICE_TOTAL), str(EPOCHS), str(LEARNING_RATE),
     str(SMOOTH), str(BATCH_SIZE)
 ]
 

@@ -36,7 +36,7 @@ def test():
 
     # Load test data
     logging.info('\t\tLoading and preprocessing test data...')
-    test_dataset = load_test_data(slice_file, slice_total)
+    test_dataset = load_test_data(slice_total)
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # Load the model

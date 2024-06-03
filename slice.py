@@ -75,16 +75,17 @@ def slice_data():
             image_[image_ < low_range] = low_range
             image_[image_ > high_range] = high_range
 
-            # save sliced image and mask
-            # if not os.path.isfile(image_filename_) or not os.path.isfile(mask_filename_):
-            #     np.save(image_filename_, image_)
-            #     np.save(mask_filename_, mask_)
-
             # compute the mean value of the slice
             average[j] = float(image_.sum()) / (image_.shape[0] * image_.shape[1])
 
             # this is the sum of pixel numbers of a ground truth mask
             sum_[j] = np.count_nonzero(mask_ == 1)
+            # save sliced image and mask that are relevant
+            if sum_[j] >= 100:
+                if not os.path.isfile(image_filename_):
+                    np.save(image_filename_, image_)
+                if not os.path.isfile(mask_filename_):
+                    np.save(mask_filename_, mask_)
             # record the coordinates of ground truth mask pixels
             arr = np.nonzero(mask_ == 1)
 
@@ -120,24 +121,19 @@ def slice_data():
 
     # create training and testing image lists (for 80% and 75% training)
     # slice total = 4 for 75% and 5 for 80%
-    # for training models with different data from the same dataset
-    # every slice file has a different order of data
-    # there are 9 files for 9 different models
-    # choose the best
     print('Writing training image list and testing image list.')
     for slices in [4, 5]:
-        for file_sliced in range(slices):
-            list_training_ = training_set_filename(file_sliced+1, slices)
-            list_testing_ = testing_set_filename(file_sliced+1, slices)
-            output_training = open(list_training_, 'w')
-            output_testing = open(list_testing_, 'w')
-            for i in range(total_samples):
-                if in_training_set(total_samples, i, slices, file_sliced):
-                    output_training.write(f"{i} {image_list[i]} {mask_list[i]}\n")
-                else:
-                    output_testing.write(f"{i} {image_list[i]} {mask_list[i]}\n")
-            output_training.close()
-            output_testing.close()
+        list_training_ = training_set_filename(slices)
+        list_testing_ = testing_set_filename(slices)
+        output_training = open(list_training_, 'w')
+        output_testing = open(list_testing_, 'w')
+        for i in range(total_samples):
+            if in_training_set(total_samples, i, slices, slices-1):
+                output_training.write(f"{i} {image_list[i]} {mask_list[i]}\n")
+            else:
+                output_testing.write(f"{i} {image_list[i]} {mask_list[i]}\n")
+        output_training.close()
+        output_testing.close()
 
     print('Initialization is done.')
 
