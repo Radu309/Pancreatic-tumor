@@ -1,7 +1,5 @@
-import torch
-import numpy as np
-import os
 import sys
+
 from utils import *
 
 
@@ -71,16 +69,44 @@ def create_data(data_type):
         current_image = np.load(create_slice_list[i])
         current_mask = np.load(create_mask_list[i])
 
-        current_image = normalize_image(current_image, low_range, high_range)
+        current_image = normalize_image(current_image, np.min(current_image), np.max(current_image))
 
         if current_image.max() > 1:
             current_image = current_image / current_image.max()
 
-        cropped_image = crop_image(current_image)
-        cropped_mask = crop_image(current_mask)
+        arr = np.nonzero(current_mask)
 
-        images_list_normalized[i] = cropped_image
-        masks_list_normalized[i] = cropped_mask
+        width = current_mask.shape[0]
+        height = current_mask.shape[1]
+
+        minA = min(arr[0])
+        maxA = max(arr[0])
+        minB = min(arr[1])
+        maxB = max(arr[1])
+
+        # with margin
+        if (min(maxA + margin + 1, width) - max(minA - margin, 0)) <= X_MAX:
+            bottom = min(maxA + margin + 1, width)
+        else:
+            bottom = X_MAX + max(minA - margin, 0)
+
+        if (min(maxB + margin + 1, height) - max(minB - margin, 0)) <= Y_MAX:
+            right = min(maxB + margin + 1, height)
+        else:
+            right = X_MAX + max(minB - margin, 0)
+
+
+        # cropped_image = current_image[max(minA - margin, 0): min(maxA + margin + 1, width), \
+        #              max(minB - margin, 0): min(maxB + margin + 1, height)]
+        # cropped_mask = current_mask[max(minA - margin, 0): min(maxA + margin + 1, width), \
+        #                max(minB - margin, 0): min(maxB + margin + 1, height)]
+        cropped_image = current_image[max(minA - margin, 0): bottom, \
+                     max(minB - margin, 0): right]
+        cropped_mask = current_mask[max(minA - margin, 0): bottom, \
+                       max(minB - margin, 0): right]
+
+        images_list_normalized[i] = pad_2d(cropped_image, 0, X_MAX, Y_MAX)
+        masks_list_normalized[i] = pad_2d(cropped_mask, 0, X_MAX, Y_MAX)
 
         if i % 100 == 0:
             print(f'Done: {i}/{total} slices')
@@ -90,41 +116,30 @@ def create_data(data_type):
         train_masks = torch.tensor(masks_list_normalized[:-val_count])
         val_images = torch.tensor(images_list_normalized[-val_count:])
         val_masks = torch.tensor(masks_list_normalized[-val_count:])
-        # train_images = images_list_normalized[:-val_count]
-        # train_masks = masks_list_normalized[:-val_count]
-        # val_images = images_list_normalized[-val_count:]
-        # val_masks = masks_list_normalized[-val_count:]
-        # np.save(os.path.join(DATALOADER_PATH, f'training_{slice_total-1}_of_{slice_total}_images.npy'), train_images)
-        # np.save(os.path.join(DATALOADER_PATH, f'training_{slice_total-1}_of_{slice_total}_masks.npy'), train_masks)
-        # np.save(os.path.join(DATALOADER_PATH, f'validation_{slice_total-1}_of_{slice_total}_images.npy'), val_images)
-        # np.save(os.path.join(DATALOADER_PATH, f'validation_{slice_total-1}_of_{slice_total}_masks.npy'), val_masks)
 
         torch.save((train_images, train_masks, val_images, val_masks),
-                   os.path.join(DATALOADER_PATH, f'training_{slice_total-1}_of_{slice_total}.pt'))
-        print(f'Training data created for slice file number = {slice_total-1}_of_{slice_total}')
+                   os.path.join(DATALOADER_PATH, f'training_{slice_total - 1}_of_{slice_total}_margin-{margin}.pt'))
+        print(f'Training data created for slice file number = {slice_total - 1}_of_{slice_total}')
     else:
-        # np.save(os.path.join(DATALOADER_PATH, f'testing_1_of_{slice_total}_images.npy'), images_list_normalized)
-        # np.save(os.path.join(DATALOADER_PATH, f'testing_1_of_{slice_total}_masks.npy'), masks_list_normalized)
         test_images = torch.tensor(images_list_normalized)
         test_masks = torch.tensor(masks_list_normalized)
 
         torch.save((test_images, test_masks),
-                   os.path.join(DATALOADER_PATH, f'testing_1_of_{slice_total}.pt'))
+                   os.path.join(DATALOADER_PATH, f'testing_1_of_{slice_total}_margin-{margin}.pt'))
         print(f'Testing data created for slice file number = 1_of_{slice_total}')
 
 
-
-def load_train_and_val_data(slice_total_):
+def load_train_and_val_data(slice_total_, margin_):
     train_images, train_masks, val_images, val_masks = (
-        torch.load(os.path.join(DATALOADER_PATH, f'training_{slice_total_-1}_of_{slice_total_}.pt')))
+        torch.load(os.path.join(DATALOADER_PATH, f'training_{slice_total_ - 1}_of_{slice_total_}_margin-{margin_}.pt')))
     train_dataset = PrepareDataset(train_images, train_masks)
     val_dataset = PrepareDataset(val_images, val_masks)
     return train_dataset, val_dataset
 
 
-def load_test_data(slice_total_):
+def load_test_data(slice_total_, margin_):
     test_images, test_masks = (
-        torch.load(os.path.join(DATALOADER_PATH, f'testing_1_of_{slice_total_}.pt')))
+        torch.load(os.path.join(DATALOADER_PATH, f'testing_1_of_{slice_total_}_margin-{margin_}.pt')))
     test_dataset = PrepareDataset(test_images, test_masks)
     return test_dataset
 
@@ -134,10 +149,6 @@ if __name__ == '__main__':
     Z_MAX = int(sys.argv[2])
     Y_MAX = int(sys.argv[3])
     X_MAX = int(sys.argv[4])
-    low_range = int(sys.argv[5])
-    high_range = int(sys.argv[6])
-
-    # for index in range(slice_total):
-    #     slice_file = index + 1
+    margin = int(sys.argv[5])
     create_data('train')
     create_data('test')

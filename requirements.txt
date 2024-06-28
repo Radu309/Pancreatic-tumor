@@ -9,3 +9,4 @@ numpy~=1.26.3
 torch~=2.1.0+cu121
 torchvision~=0.16.0+cu121
 scikit-learn~=1.5.0
+opencv-python~=4.10.0.84

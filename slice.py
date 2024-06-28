@@ -1,5 +1,4 @@
 import time
-import sys
 from utils import *
 
 
@@ -39,8 +38,10 @@ def slice_data():
         mask = np.load(mask_list[i])
 
         # slice_number is the number of slices of corresponding dimension (X/Y/Z) [Z for now]
-        slice_number = mask.shape[2]
-
+        if image.ndim == 3:
+            slice_number = mask.shape[2]
+        else:
+            slice_number = 1
         image_directory_ = os.path.join(IMAGE_PATH, image_filename[i])
         if not os.path.exists(image_directory_):
             os.makedirs(image_directory_)
@@ -63,17 +64,19 @@ def slice_data():
         for j in range(slice_number):
             # image_filename_ sample dir: image_X /  0001  / 0001.npy
             #                              plane/ case num / slice num
-            image_filename_ = os.path.join(
-                image_directory_, '{:0>4}'.format(j) + '.npy')
-            mask_filename_ = os.path.join(
-                mask_directory_, '{:0>4}'.format(j) + '.npy')
+            image_filename_ = os.path.join(image_directory_, '{:0>4}'.format(j) + '.npy')
+            mask_filename_ = os.path.join(mask_directory_, '{:0>4}'.format(j) + '.npy')
 
-            image_ = image[:, :, j]
-            mask_ = mask[:, :, j]
+            if image.ndim == 3:
+                image_ = image[:, :, j]
+                mask_ = mask[:, :, j]
+            else:
+                image_ = image
+                mask_ = mask
 
-            # threshold image to specified range
-            image_[image_ < low_range] = low_range
-            image_[image_ > high_range] = high_range
+            # # threshold image to specified range
+            # image_[image_ < low_range] = low_range
+            # image_[image_ > high_range] = high_range
 
             # compute the mean value of the slice
             average[j] = float(image_.sum()) / (image_.shape[0] * image_.shape[1])
@@ -98,10 +101,8 @@ def slice_data():
 
         # iterate each slice of current case i
         for j in range(slice_number):
-            image_filename_ = os.path.join(
-                image_directory_, '{:0>4}'.format(j) + '.npy')
-            mask_filename_ = os.path.join(
-                mask_directory_, '{:0>4}'.format(j) + '.npy')
+            image_filename_ = os.path.join(image_directory_, '{:0>4}'.format(j) + '.npy')
+            mask_filename_ = os.path.join(mask_directory_, '{:0>4}'.format(j) + '.npy')
 
             # append the following output to training_X/Y/Z.txt
             with open(LIST_DATASET, 'a+') as output:

@@ -2,9 +2,12 @@ import sys
 
 import numpy as np
 import os
+
+import torch
 from sklearn.metrics import jaccard_score
 
-DATA_PATH = "data/Pancreas_Segmentation"
+DATA_PATH = "data/Pancreas_Tumor_Segmentation"
+# DATA_PATH = "data/Pancreas_Tumor_Segmentation"
 
 # Define paths at the module level
 DATASET_PATH = os.path.join(DATA_PATH, 'dataset')
@@ -21,8 +24,11 @@ MODELS_PATH = os.path.join(DATA_PATH, 'models')
 METRICS_PATH = os.path.join(DATA_PATH, 'metrics')
 PREDICTED_PATH = os.path.join(DATA_PATH, 'predicted')
 
+PREDICTED_ALL = os.path.join('predicted_20_all')
+PREDICTED_ONE = os.path.join('predicted_20_one')
+
 paths = [DATASET_PATH, IMAGE_PATH, MASK_PATH, IMAGE_NPY_PATH, MASK_NPY_PATH, DATALOADER_PATH,
-         LISTS_PATH, MODELS_PATH, METRICS_PATH, PREDICTED_PATH]
+         LISTS_PATH, MODELS_PATH, METRICS_PATH, PREDICTED_PATH, PREDICTED_ALL, PREDICTED_ONE]
 for path in paths:
     if not os.path.exists(path):
         os.makedirs(path)
@@ -66,7 +72,7 @@ def crop_image(image):
 
 
 def pad_2d(image, pad_val, xmax, ymax):
-    val = ((0, xmax - image.shape[0]), (0, ymax - image.shape[1]))
+    val = ((0, (xmax - image.shape[0])), (0, (ymax - image.shape[1])))
     padded = np.pad(image, pad_width=val, mode='constant', constant_values=pad_val)
     return padded
 
@@ -103,6 +109,10 @@ def f1_score(precision, recall):
 
 
 def precision_score(true_mask, pred_mask):
+    # true_mask = torch.from_numpy(true_mask)
+    # pred_mask = torch.from_numpy(pred_mask)
+    true_mask = true_mask.float()  # Ensure the mask is a float tensor
+    pred_mask = pred_mask.float()  # Ensure the predicted mask is a float tensor
     tp = (true_mask * pred_mask).sum().float()
     fp = ((1 - true_mask) * pred_mask).sum().float()
     return tp / (tp + fp + 1e-10)
