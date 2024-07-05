@@ -1,3 +1,4 @@
+import glob
 import sys
 
 import numpy as np
@@ -24,11 +25,10 @@ MODELS_PATH = os.path.join(DATA_PATH, 'models')
 METRICS_PATH = os.path.join(DATA_PATH, 'metrics')
 PREDICTED_PATH = os.path.join(DATA_PATH, 'predicted')
 
-PREDICTED_ALL = os.path.join('predicted_20_all')
-PREDICTED_ONE = os.path.join('predicted_20_one')
+PREDICTED_ALL = os.path.join('predicted_all_hrnet')
 
 paths = [DATASET_PATH, IMAGE_PATH, MASK_PATH, IMAGE_NPY_PATH, MASK_NPY_PATH, DATALOADER_PATH,
-         LISTS_PATH, MODELS_PATH, METRICS_PATH, PREDICTED_PATH, PREDICTED_ALL, PREDICTED_ONE]
+         LISTS_PATH, MODELS_PATH, METRICS_PATH, PREDICTED_PATH, PREDICTED_ALL]
 for path in paths:
     if not os.path.exists(path):
         os.makedirs(path)
@@ -58,26 +58,13 @@ def normalize_image(image, low_range, high_range):
     return (image - low_range) / float(high_range - low_range)
 
 
-def crop_image(image):
-    crop_size = 400
-    half_crop_size = crop_size//2
-    center_x, center_y = image.shape[1] // 2, image.shape[0] // 2
-
-    # Calculate the coordinates for cropping
-    start_x = center_x - half_crop_size
-    start_y = center_y - half_crop_size
-    end_x = start_x + crop_size
-    end_y = start_y + crop_size
-    return image[start_y:end_y, start_x:end_x]
-
-
 def pad_2d(image, pad_val, xmax, ymax):
     val = ((0, (xmax - image.shape[0])), (0, (ymax - image.shape[1])))
     padded = np.pad(image, pad_width=val, mode='constant', constant_values=pad_val)
     return padded
 
 
-def dice_coefficient(y_true, y_pred, smooth):
+def dice_coefficient(y_true, y_pred, smooth=1e-4):
     y_true_f = y_true.view(-1)
     y_pred_f = y_pred.view(-1)
     intersection = (y_true_f * y_pred_f).sum()

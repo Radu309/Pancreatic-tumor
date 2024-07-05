@@ -1,25 +1,39 @@
 import os
-import sys
 
 import cv2
 import torch
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import tkinter as tk_interface
+
 from unet import UNet
 
 import numpy as np
-from utils import normalize_image, LIST_DATASET, pad_2d, PREDICTED_ONE
+from utils import normalize_image, LIST_DATASET, pad_2d, dice_coefficient, iou_score, precision_score, recall_score, \
+    specificity_score, f1_score
+
+margin = 40
+Y_MAX = 256
+X_MAX = 192
+
+
+def normalize_and_split_path(path):
+    return os.path.normpath(path).split(os.sep)
 
 
 def find_mask_path(image_path, LIST_DATASET):
+    image_path_parts = normalize_and_split_path(image_path)
     with open(LIST_DATASET, 'r') as file:
         for line in file:
             parts = line.strip().split()
-            if parts[2] == image_path:
-                return parts[3]
+            if len(parts) > 2:
+                dataset_image_path_parts = normalize_and_split_path(parts[2])
+                if image_path_parts == dataset_image_path_parts:
+                    return os.path.normpath(parts[3])
     return None
 
 
-def load_single_image(image_path, margin, Y_MAX, X_MAX):
+def load_single_image(image_path):
     mask_path = find_mask_path(image_path, LIST_DATASET)
     if mask_path == None:
         exit("No mask found")
@@ -49,15 +63,16 @@ def load_single_image(image_path, margin, Y_MAX, X_MAX):
 
     cropped_image = pad_2d(cropped_image, 0, X_MAX, Y_MAX)
 
-    return torch.tensor(cropped_image).unsqueeze(0), torch.tensor(full_image).unsqueeze(0)
+    return torch.tensor(cropped_image).unsqueeze(0), torch.tensor(current_mask).unsqueeze(0), torch.tensor(full_image).unsqueeze(0), minA, minB,
 
 
-def predict_images(image_path, model_pancreas_path, model_tumor_path, margin, Y_MAX, X_MAX):
+def predict_images(image_path, model_pancreas_path, model_tumor_path):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    cropped_image, original_image = load_single_image(image_path, margin, Y_MAX, X_MAX)
+    cropped_image, original_mask, original_image, minY, minX = load_single_image(image_path)
     cropped_image = cropped_image.to(device, dtype=torch.float32, non_blocking=True).unsqueeze(1)
     original_image = original_image.to(device, dtype=torch.float32, non_blocking=True)
+    original_mask = original_mask.to(device, dtype=torch.float32, non_blocking=True)
 
     model_pancreas = UNet(1, 1).to(device)
     model_pancreas.load_state_dict(torch.load(model_pancreas_path))
@@ -67,19 +82,17 @@ def predict_images(image_path, model_pancreas_path, model_tumor_path, margin, Y_
     model_tumor.load_state_dict(torch.load(model_tumor_path))
     model_tumor.eval()
 
-    print("\t\tStart predict")
     with torch.no_grad():
         outputs_pancreas = model_pancreas(cropped_image)
         outputs_tumor = model_tumor(cropped_image)
 
     original_image_np = original_image.cpu().numpy().squeeze()
+    original_mask_np = original_image.cpu().numpy().squeeze()
     cropped_image_np = cropped_image.cpu().numpy().squeeze()
     outputs_pancreas_np = outputs_pancreas.detach().cpu().numpy().squeeze()
     outputs_tumor_np = outputs_tumor.detach().cpu().numpy().squeeze()
 
-    result = cv2.matchTemplate(original_image_np, cropped_image_np, cv2.TM_CCOEFF_NORMED)
-    _, _, _, max_loc = cv2.minMaxLoc(result)
-    top_left = max_loc
+    top_left = (minX - margin, minY - margin)
     h, w = cropped_image_np.shape
     bottom_right = (top_left[0] + w, top_left[1] + h)
 
@@ -89,28 +102,22 @@ def predict_images(image_path, model_pancreas_path, model_tumor_path, margin, Y_
     padded_tumor_output[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]] = outputs_tumor_np
     padded_pancreas_output[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]] = outputs_pancreas_np
 
-    save_output(original_image_np, padded_pancreas_output, padded_tumor_output, PREDICTED_ONE, 0)
+    # Calculate metrics
+    dice_tumor = dice_coefficient(original_mask, torch.tensor(padded_tumor_output).to(device)).item()
+    iou_tumor = iou_score(original_mask, torch.tensor(padded_tumor_output).to(device))
+    precision_tumor = precision_score(original_mask, torch.tensor(padded_tumor_output).to(device)).item()
+    recall_tumor = recall_score(original_mask, torch.tensor(padded_tumor_output).to(device)).item()
+    specificity_tumor = specificity_score(original_mask, torch.tensor(padded_tumor_output).to(device)).item()
+    f1_tumor = f1_score(precision_tumor, recall_tumor)
+    accuracy_tumor = ((torch.tensor(padded_tumor_output).to(device).round() == original_mask).float().mean().item())
+
+    # Print metrics
+    print(f"Tumor - Dice: {dice_tumor}, IoU: {iou_tumor}, Precision: {precision_tumor}, Recall: {recall_tumor}, Specificity: {specificity_tumor}, F1: {f1_tumor}, Accuracy: {accuracy_tumor}")
+
+    show_output(original_image_np, padded_pancreas_output, padded_tumor_output)
 
 
-
-def save_output(original_image, padded_pancreas_output, padded_tumor_output, save_dir, idx):
-    fig, ax = plt.subplots(1, 3, figsize=(15, 5))
-
-    im0 = ax[0].imshow(original_image, cmap='gray', vmin=0, vmax=1)
-    ax[0].set_title('Original Image')
-    fig.colorbar(im0, ax=ax[0])
-
-    im1 = ax[1].imshow(padded_pancreas_output, cmap='gray', vmin=0, vmax=1)
-    ax[1].set_title('Pancreas Output')
-    fig.colorbar(im1, ax=ax[1])
-
-    im2 = ax[2].imshow(padded_tumor_output, cmap='gray', vmin=0, vmax=1)
-    ax[2].set_title('Tumor Output')
-    fig.colorbar(im2, ax=ax[2])
-
-    plt.savefig(os.path.join(save_dir, f'{idx:04d}.jpg'))
-    plt.close(fig)
-
+def show_output(original_image, padded_pancreas_output, padded_tumor_output):
     overlay_rgb = np.stack([original_image] * 3, axis=-1)
     red_mask = padded_pancreas_output > 0.5
     blue_mask = padded_tumor_output > 0.5
@@ -123,19 +130,31 @@ def save_output(original_image, padded_pancreas_output, padded_tumor_output, sav
     overlay_rgb[blue_mask, 2] = 1  # Blue
     overlay_rgb[blue_mask, :2] = 0  # Remove red and green
 
-    # Display the overlay image
+    # Create a new Tkinter window
+    window = tk_interface.Tk()
+    window.title('Image')
+
+    # Create a figure and axes
     fig, ax = plt.subplots(1, 1, figsize=(5, 5))
     ax.imshow(overlay_rgb)
-    ax.set_title('Overlay of Pancreas (Red) and Tumor (Blue) Outputs on Original Image')
-    plt.savefig(os.path.join(save_dir, f'{idx:04d}_overlay.jpg'))
-    plt.close(fig)
+    ax.set_title('CT image of a pancreatic tumor')
+
+    # Create a frame to hold the canvas and the color description
+    frame = tk_interface.Frame(window)
+    frame.pack(fill=tk_interface.BOTH, expand=True)
+
+    # Create a canvas to display the Matplotlib figure
+    canvas = FigureCanvasTkAgg(fig, master=frame)
+    canvas.draw()
+    canvas.get_tk_widget().pack(side=tk_interface.LEFT, fill=tk_interface.BOTH, expand=True)
+
+    # Create a label to display the color description
+    description_label = tk_interface.Label(frame, text="\nRoșu: Pancreas\nAlbastru: Tumoare",
+                                           justify=tk_interface.LEFT, padx=10, pady=10)
+    description_label.pack(side=tk_interface.RIGHT, fill=tk_interface.BOTH, expand=True)
+
+    # Start the Tkinter main loop
+    window.mainloop()
 
 
-if __name__ == "__main__":
-    model_pancreas_path = sys.argv[1]
-    model_tumor_path = sys.argv[2]
-    margin = int(sys.argv[3])
-    Y_MAX = int(sys.argv[4])
-    X_MAX = int(sys.argv[5])
-    current_image_path = sys.argv[6]
-    predict_images(current_image_path, model_pancreas_path, model_tumor_path, margin, Y_MAX, X_MAX)
+

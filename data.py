@@ -85,25 +85,10 @@ def create_data(data_type):
         maxB = max(arr[1])
 
         # with margin
-        if (min(maxA + margin + 1, width) - max(minA - margin, 0)) <= X_MAX:
-            bottom = min(maxA + margin + 1, width)
-        else:
-            bottom = X_MAX + max(minA - margin, 0)
-
-        if (min(maxB + margin + 1, height) - max(minB - margin, 0)) <= Y_MAX:
-            right = min(maxB + margin + 1, height)
-        else:
-            right = X_MAX + max(minB - margin, 0)
-
-
-        # cropped_image = current_image[max(minA - margin, 0): min(maxA + margin + 1, width), \
-        #              max(minB - margin, 0): min(maxB + margin + 1, height)]
-        # cropped_mask = current_mask[max(minA - margin, 0): min(maxA + margin + 1, width), \
-        #                max(minB - margin, 0): min(maxB + margin + 1, height)]
-        cropped_image = current_image[max(minA - margin, 0): bottom, \
-                     max(minB - margin, 0): right]
-        cropped_mask = current_mask[max(minA - margin, 0): bottom, \
-                       max(minB - margin, 0): right]
+        cropped_image = current_image[max(minA - margin, 0): min(maxA + margin + 1, width), \
+                     max(minB - margin, 0): min(maxB + margin + 1, height)]
+        cropped_mask = current_mask[max(minA - margin, 0): min(maxA + margin + 1, width), \
+                       max(minB - margin, 0): min(maxB + margin + 1, height)]
 
         images_list_normalized[i] = pad_2d(cropped_image, 0, X_MAX, Y_MAX)
         masks_list_normalized[i] = pad_2d(cropped_mask, 0, X_MAX, Y_MAX)
