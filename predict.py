@@ -1,7 +1,6 @@
 import os
 import sys
 
-import cv2
 import torch
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader, Dataset

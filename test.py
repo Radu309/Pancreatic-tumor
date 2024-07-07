@@ -10,6 +10,7 @@ from unet import UNet
 from utils import dice_coefficient, iou_score, precision_score, PREDICTED_PATH, METRICS_PATH
 from data import load_test_data
 import matplotlib.pyplot as plt
+import torch.nn.functional as F
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -57,7 +58,7 @@ def test():
     logging.info('\t\tEvaluating the model...')
     with open(results_file_path, mode='w', newline='') as file:
         writer = csv.writer(file, delimiter=';')  # Set the delimiter to semicolon
-        writer.writerow(['Batch Index', 'Dice Coefficient', 'IOU Score', 'Precision', 'Accuracy'])
+        writer.writerow(['Batch Index', 'Dice Coefficient', 'IOU Score', 'Precision', 'Accuracy', 'Cross-Entropy Loss'])
 
         total_dice = 0
         total_iou = 0
@@ -78,7 +79,6 @@ def test():
                 iou = iou_score(masks, outputs)
                 precision = precision_score(masks, outputs).item()
                 accuracy = (outputs_prob.round() == masks).float().mean().item()
-
                 writer.writerow([idx, dice, iou, precision, accuracy])
 
                 total_dice += dice
@@ -93,7 +93,6 @@ def test():
         mean_iou = total_iou / len(test_loader)
         mean_precision = total_precision / len(test_loader)
         mean_accuracy = total_accuracy / len(test_loader)
-
         # Scrie mediile în CSV
         writer.writerow(['Average', mean_dice, mean_iou, mean_precision, mean_accuracy])
 

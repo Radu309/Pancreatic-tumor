@@ -9,7 +9,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from unet import UNet
+from resnet import ResUNet
 from utils import *
 from data import load_train_and_val_data
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -91,7 +91,7 @@ def train():
     # Initialize TensorBoard
     writer_log_dir = os.path.join(
         METRICS_PATH,
-        f'metrics_{slice_total - 1}_of_{slice_total}_ep-{epochs}_lr-{learning_rate}_bs-{batch_size}_margin-{margin}'
+        f'metrics_resnet_{slice_total - 1}_of_{slice_total}_ep-{epochs}_lr-{learning_rate}_bs-{batch_size}_margin-{margin}'
     )
     writer = SummaryWriter(log_dir=f'{writer_log_dir}')
 
@@ -103,7 +103,7 @@ def train():
 
     # Create and compile model
     logging.info('\t\tCreating and compiling model...')
-    model = UNet(1, 1).to(device)
+    model = ResUNet  (in_channels=1, out_channels=1).to(device)  # Utilizăm noul model ResNetSegmentation
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
     scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
 
@@ -143,7 +143,7 @@ def train():
         if (epoch + 1) % 10 == 0:
             model_save_path = os.path.join(
                 MODELS_PATH,
-                f'model_{slice_total - 1}_of_{slice_total}_ep-{epoch + 1}_lr-{learning_rate}_bs-{batch_size}_margin-{margin}.pth'
+                f'model_resnet_{slice_total - 1}_of_{slice_total}_ep-{epoch + 1}_lr-{learning_rate}_bs-{batch_size}_margin-{margin}.pth'
             )
             torch.save(model.state_dict(), model_save_path)
 
@@ -158,12 +158,12 @@ def train():
 
 
 if __name__ == "__main__":
-    slice_total = int(sys.argv[1])
-    epochs = int(sys.argv[2])
-    learning_rate = float(sys.argv[3])
-    smooth = float(sys.argv[4])
-    batch_size = int(sys.argv[5])
-    margin = int(sys.argv[6])
+    slice_total = 5
+    epochs = 100
+    learning_rate = 1e-3
+    smooth = 1e-4
+    batch_size = 2
+    margin = 40
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if torch.cuda.is_available():

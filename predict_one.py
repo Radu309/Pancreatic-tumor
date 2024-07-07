@@ -1,6 +1,5 @@
 import os
 
-import cv2
 import torch
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
