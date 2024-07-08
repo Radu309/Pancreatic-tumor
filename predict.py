@@ -5,6 +5,7 @@ import torch
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader, Dataset
 
+from resnet import ResUNet
 from hrnet import HRNet
 from unet import UNet
 
@@ -98,8 +99,8 @@ def predict_images(model_pancreas_path, model_tumor_path, margin, Y_MAX, X_MAX):
     model_pancreas.load_state_dict(torch.load(model_pancreas_path))
     model_pancreas.eval()
 
-    model_tumor = UNet(1, 1).to(device)
-    model_tumor = HRNet(1, 1).to(device)
+    # model_tumor = UNet(1, 1).to(device)
+    model_tumor = ResUNet(1, 1).to(device)
     model_tumor.load_state_dict(torch.load(model_tumor_path))
     model_tumor.eval()
 

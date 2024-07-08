@@ -8,8 +8,7 @@ import tkinter as tk_interface
 from unet import UNet
 
 import numpy as np
-from utils import normalize_image, LIST_DATASET, pad_2d, dice_coefficient, iou_score, precision_score, recall_score, \
-    specificity_score, f1_score
+from utils import normalize_image, LIST_DATASET, pad_2d, dice_coefficient, iou_score, precision_score, recall_score, specificity_score, f1_score
 
 margin = 40
 Y_MAX = 256
@@ -110,13 +109,19 @@ def predict_images(image_path, model_pancreas_path, model_tumor_path):
     f1_tumor = f1_score(precision_tumor, recall_tumor)
     accuracy_tumor = ((torch.tensor(padded_tumor_output).to(device).round() == original_mask).float().mean().item())
 
-    # Print metrics
-    print(f"Tumor - Dice: {dice_tumor}, IoU: {iou_tumor}, Precision: {precision_tumor}, Recall: {recall_tumor}, Specificity: {specificity_tumor}, F1: {f1_tumor}, Accuracy: {accuracy_tumor}")
+    metrics_text = (
+        f"Tumor - Dice: {dice_tumor:.4f}\n"
+        f"IoU: {iou_tumor:.4f}\n"
+        f"Precision: {precision_tumor:.4f}\n"
+        f"Recall: {recall_tumor:.4f}\n"
+        f"Specificity: {specificity_tumor:.4f}\n"
+        f"F1: {f1_tumor:.4f}\n"
+        f"Accuracy: {accuracy_tumor:.4f}"
+    )
+    show_output(original_image_np, padded_pancreas_output, padded_tumor_output, metrics_text)
 
-    show_output(original_image_np, padded_pancreas_output, padded_tumor_output)
 
-
-def show_output(original_image, padded_pancreas_output, padded_tumor_output):
+def show_output(original_image, padded_pancreas_output, padded_tumor_output, metrics_text):
     overlay_rgb = np.stack([original_image] * 3, axis=-1)
     red_mask = padded_pancreas_output > 0.5
     blue_mask = padded_tumor_output > 0.5
@@ -148,7 +153,7 @@ def show_output(original_image, padded_pancreas_output, padded_tumor_output):
     canvas.get_tk_widget().pack(side=tk_interface.LEFT, fill=tk_interface.BOTH, expand=True)
 
     # Create a label to display the color description
-    description_label = tk_interface.Label(frame, text="\nRoșu: Pancreas\nAlbastru: Tumoare",
+    description_label = tk_interface.Label(frame, text="\nRoșu: Pancreas\nAlbastru: Tumoare\n\n" + metrics_text,
                                            justify=tk_interface.LEFT, padx=10, pady=10)
     description_label.pack(side=tk_interface.RIGHT, fill=tk_interface.BOTH, expand=True)
 

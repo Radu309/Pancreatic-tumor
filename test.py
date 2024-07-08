@@ -58,7 +58,7 @@ def test():
     logging.info('\t\tEvaluating the model...')
     with open(results_file_path, mode='w', newline='') as file:
         writer = csv.writer(file, delimiter=';')  # Set the delimiter to semicolon
-        writer.writerow(['Batch Index', 'Dice Coefficient', 'IOU Score', 'Precision', 'Accuracy', 'Cross-Entropy Loss'])
+        writer.writerow(['Batch Index', 'Dice Coefficient', 'IOU Score', 'Precision', 'Accuracy'])
 
         total_dice = 0
         total_iou = 0

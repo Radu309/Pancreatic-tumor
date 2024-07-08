@@ -18,7 +18,7 @@ Y_MAX = 256
 X_MAX = 192
 EPOCHS = 100
 BATCH_SIZE = 1
-LEARNING_RATE = 1e-3
+LEARNING_RATE = 1e-5
 # LEARNING_RATE = 1e-5
 SMOOTH = 1e-4
 # SMOOTH = 1e-3
@@ -26,7 +26,7 @@ MODEL_PATH = f'{MODELS_PATH}/model_{SLICE_TOTAL-1}_of_{SLICE_TOTAL}_ep-{EPOCHS}_
 MODEL_HR_PATH = f'{MODELS_PATH}/model_hrnet_{SLICE_TOTAL-1}_of_{SLICE_TOTAL}_ep-{EPOCHS}_lr-{LEARNING_RATE}_bs-{BATCH_SIZE}_margin-{MARGIN}.pth'
 MODEL_PANCREAS_PATH = 'data/Pancreas_Segmentation/models/model_4_of_5_ep-50_lr-1e-05_bs-16_margin-20.pth'
 # MODEL_TUMOR_PATH = 'data/Pancreas_Tumor_Segmentation/models/model_4_of_5_ep-100_lr-1e-05_bs-2_margin-40.pth'
-MODEL_TUMOR_PATH = 'data/Pancreas_Tumor_Segmentation/models/model_hrnet_4_of_5_ep-50_lr-0.001_bs-1_margin-40.pth'
+MODEL_TUMOR_PATH = 'data/Pancreas_Tumor_Segmentation/models/model_resnet_4_of_5_ep-100_lr-1e-05_bs-2_margin-40.pth'
 PREDICT_ONE_IMAGE = "data/Pancreas_Tumor_Segmentation\dataset\images\\0000\\0000.npy"
 
 # Programs
@@ -80,28 +80,6 @@ test_hr_cmd = [
     str(SLICE_TOTAL), str(MODEL_HR_PATH),
     str(SMOOTH), str(MARGIN)
 ]
-#   third moder
-train_attention_cmd = [
-    python_cmd, "attention_train.py",
-    str(SLICE_TOTAL), str(EPOCHS), str(LEARNING_RATE),
-    str(SMOOTH), str(BATCH_SIZE), str(MARGIN)
-]
-test_attention_cmd = [
-    python_cmd, "attention_test.py",
-    str(SLICE_TOTAL), str(MODEL_HR_PATH),
-    str(SMOOTH), str(MARGIN)
-]
-#   4
-train_fcn_cmd = [
-    python_cmd, "fcn_train.py",
-    str(SLICE_TOTAL), str(EPOCHS), str(LEARNING_RATE),
-    str(SMOOTH), str(BATCH_SIZE), str(MARGIN)
-]
-test_fcn_cmd = [
-    python_cmd, "fcn_test.py",
-    str(SLICE_TOTAL), str(MODEL_HR_PATH),
-    str(SMOOTH), str(MARGIN)
-]
 # Select which command to run based on command line arguments
 if len(sys.argv) != 2:
     print("Usage: python pipeline.py [command]")
@@ -135,20 +113,7 @@ elif command_to_run == "train_hrnet":
 elif command_to_run == "test_hrnet":
     print("Running test_hrnet.py...")
     subprocess.run(test_hr_cmd)
-    #
-elif command_to_run == "train_attention":
-    print("Running train_attention.py...")
-    subprocess.run(train_attention_cmd)
-elif command_to_run == "test_attention":
-    print("Running test_attention.py...")
-    subprocess.run(test_attention_cmd)
-    #
-elif command_to_run == "train_fcn":
-    print("Running train_fcn.py...")
-    subprocess.run(train_fcn_cmd)
-elif command_to_run == "test_fcn":
-    print("Running test_fcn.py...")
-    subprocess.run(test_fcn_cmd)
+
 else:
     print("Invalid command:", command_to_run)
     print("Available commands: convert, slice, data, train, test, predict")

@@ -106,7 +106,7 @@ class TumorSegmentationDisplay:
 
 if __name__ == "__main__":
     MODEL_PANCREAS_PATH = 'data/Pancreas_Segmentation/models/model_4_of_5_ep-50_lr-1e-05_bs-16_margin-20.pth'
-    MODEL_TUMOR_PATH = 'data/Pancreas_Tumor_Segmentation/models/just in case/model_4_of_5_ep-100_lr-1e-05_bs-2_margin-40.pth'
+    MODEL_TUMOR_PATH = 'data/Pancreas_Tumor_Segmentation/models/model_4_of_5_ep-100_lr-1e-05_bs-2_margin-40.pth'
     IMAGES_PATH = "data/Pancreas_Tumor_Segmentation/dataset/images"
     root = tk.Tk()
     app = TumorSegmentationDisplay(root)

@@ -77,19 +77,23 @@ class AttentionUNet(nn.Module):
         bottleneck = self.bottleneck(self.pool4(enc4))
 
         dec4 = self.upconv4(bottleneck)
-        enc4 = self.att4(g=dec4, x=enc4)
-        dec4 = torch.cat((dec4, enc4), dim=1)
+        att4 = self.att4(g=dec4, x=enc4)
+        dec4 = torch.cat((dec4, att4), dim=1)
         dec4 = self.decoder4(dec4)
+
         dec3 = self.upconv3(dec4)
-        enc3 = self.att3(g=dec3, x=enc3)
-        dec3 = torch.cat((dec3, enc3), dim=1)
+        att3 = self.att3(g=dec3, x=enc3)
+        dec3 = torch.cat((dec3, att3), dim=1)
         dec3 = self.decoder3(dec3)
+
         dec2 = self.upconv2(dec3)
-        enc2 = self.att2(g=dec2, x=enc2)
-        dec2 = torch.cat((dec2, enc2), dim=1)
+        att2 = self.att2(g=dec2, x=enc2)
+        dec2 = torch.cat((dec2, att2), dim=1)
         dec2 = self.decoder2(dec2)
+
         dec1 = self.upconv1(dec2)
-        enc1 = self.att1(g=dec1, x=enc1)
-        dec1 = torch.cat((dec1, enc1), dim=1)
+        att1 = self.att1(g=dec1, x=enc1)
+        dec1 = torch.cat((dec1, att1), dim=1)
         dec1 = self.decoder1(dec1)
+
         return self.sigmoid(self.final_conv(dec1))

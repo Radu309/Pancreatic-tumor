@@ -13,6 +13,7 @@ from hrnet import HRNet
 from utils import *
 from data import load_train_and_val_data
 from torch.optim.lr_scheduler import CosineAnnealingLR
+import torch.nn.functional as F
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -43,8 +44,8 @@ def run_epoch(model, data_loader, optimizer, device, smooth, is_training=True):
             optimizer.zero_grad()
 
         outputs = model(images)
-        outputs_prob = torch.sigmoid(outputs)
-        loss = 1 - dice_coefficient(masks, outputs_prob, smooth)
+        # outputs_prob = torch.sigmoid(outputs)
+        loss = 1 - dice_coefficient(masks, outputs, smooth)
 
         if is_training:
             loss.backward()
@@ -54,11 +55,11 @@ def run_epoch(model, data_loader, optimizer, device, smooth, is_training=True):
         epoch_loss += loss.item()
 
         # Calculate metrics
-        dice = dice_coefficient(masks, outputs_prob, smooth).item()
-        iou = iou_score(masks, outputs_prob)
-        precision = precision_score(masks, outputs_prob).item()
-        recall = recall_score(masks, outputs_prob).item()
-        specificity = specificity_score(masks, outputs_prob).item()
+        dice = dice_coefficient(masks, outputs, smooth).item()
+        iou = iou_score(masks, outputs)
+        precision = precision_score(masks, outputs).item()
+        recall = recall_score(masks, outputs).item()
+        specificity = specificity_score(masks, outputs).item()
 
         epoch_dice += dice
         epoch_iou += iou
@@ -103,7 +104,7 @@ def train():
 
     # Create and compile model
     logging.info('\t\tCreating and compiling model...')
-    model = HRNet(1, 1).to(device)  # Schimbat din UNet în HRNet
+    model = HRNet(1,1).to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
     scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
 

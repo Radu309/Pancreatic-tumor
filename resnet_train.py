@@ -103,7 +103,7 @@ def train():
 
     # Create and compile model
     logging.info('\t\tCreating and compiling model...')
-    model = ResUNet  (in_channels=1, out_channels=1).to(device)  # Utilizăm noul model ResNetSegmentation
+    model = ResUNet(in_channels=1, out_channels=1).to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
     scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
 
@@ -160,7 +160,7 @@ def train():
 if __name__ == "__main__":
     slice_total = 5
     epochs = 100
-    learning_rate = 1e-3
+    learning_rate = 1e-5
     smooth = 1e-4
     batch_size = 2
     margin = 40

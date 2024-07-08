@@ -5,14 +5,15 @@ import logging
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
-from attention import AttentionUNet
-from utils import dice_coefficient, iou_score, precision_score, PREDICTED_PATH, METRICS_PATH
-from data import load_test_data
 import matplotlib.pyplot as plt
+
+from resnet import ResUNet
+from utils import dice_coefficient, iou_score, precision_score, PREDICTED_PATH, METRICS_PATH, MODELS_PATH
+from data import load_test_data
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 def save_image(image, mask, output, save_dir, idx):
     fig, ax = plt.subplots(1, 3, figsize=(15, 5))
@@ -34,16 +35,16 @@ def save_image(image, mask, output, save_dir, idx):
 
 
 def test():
-    logging.info(f'\t\tStarting testing for slice file = 1_of_{slice_total}')
+    logging.info('Starting testing')
 
     # Load test data
-    logging.info('\t\tLoading and preprocessing test data...')
+    logging.info('Loading and preprocessing test data...')
     test_dataset = load_test_data(slice_total, margin)
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # Load the model
-    logging.info('\t\tLoading the model...')
-    model = AttentionUNet(1, 1).to(device)
+    logging.info('Loading the model...')
+    model = ResUNet(1, 1).to(device)
     model.load_state_dict(torch.load(model_path))
     model.eval()
 
@@ -53,7 +54,7 @@ def test():
     os.makedirs(predicted_model_dir, exist_ok=True)
 
     results_file_path = os.path.join(METRICS_PATH, f'{model_name}.csv')
-    logging.info('\t\tEvaluating the model...')
+    logging.info('Evaluating the model...')
     with open(results_file_path, mode='w', newline='') as file:
         writer = csv.writer(file, delimiter=';')  # Set the delimiter to semicolon
         writer.writerow(['Batch Index', 'Dice Coefficient', 'IOU Score', 'Precision', 'Accuracy'])
@@ -77,7 +78,6 @@ def test():
                 iou = iou_score(masks, outputs)
                 precision = precision_score(masks, outputs).item()
                 accuracy = (outputs_prob.round() == masks).float().mean().item()
-                accuracy = (outputs.round() == masks).float().mean().item()
                 writer.writerow([idx, dice, iou, precision, accuracy])
 
                 total_dice += dice
@@ -92,20 +92,22 @@ def test():
         mean_iou = total_iou / len(test_loader)
         mean_precision = total_precision / len(test_loader)
         mean_accuracy = total_accuracy / len(test_loader)
+
         # Write averages to CSV
         writer.writerow(['Average', mean_dice, mean_iou, mean_precision, mean_accuracy])
 
-    logging.info(f'Testing completed - percent 1_of_{slice_total}')
+    logging.info('Testing completed')
+
 
 if __name__ == "__main__":
     slice_total = 5
-    model_path = "data/Pancreas_Tumor_Segmentation/models/model_attention_4_of_5_ep-100_lr-1e-05_bs-4_margin-40.pth"
-    smooth = 1e-4
+    epochs = 100
+    learning_rate = 1e-5
+    batch_size = 2
     margin = 40
+    model_path = f'{MODELS_PATH}/model_resnet_{slice_total - 1}_of_{slice_total}_ep-{epochs}_lr-{learning_rate}_bs-{batch_size}_margin-{margin}.pth'
+    smooth = 1e-4
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    if torch.cuda.is_available():
-        test()
-        print("Testing done")
-    else:
-        print("Can't start on GPU")
+    test()
+    print("Testing done")

@@ -25,7 +25,7 @@ MODELS_PATH = os.path.join(DATA_PATH, 'models')
 METRICS_PATH = os.path.join(DATA_PATH, 'metrics')
 PREDICTED_PATH = os.path.join(DATA_PATH, 'predicted')
 
-PREDICTED_ALL = os.path.join('predicted_all_hrnet_40')
+PREDICTED_ALL = os.path.join('predicted_all_attention')
 
 paths = [DATASET_PATH, IMAGE_PATH, MASK_PATH, IMAGE_NPY_PATH, MASK_NPY_PATH, DATALOADER_PATH,
          LISTS_PATH, MODELS_PATH, METRICS_PATH, PREDICTED_PATH, PREDICTED_ALL]
