@@ -1,14 +1,12 @@
 import os
-
 import torch
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import tkinter as tk_interface
-
-from unet import UNet
-
+import tkinter as tk
 import numpy as np
-from utils import normalize_image, LIST_DATASET, pad_2d, dice_coefficient, iou_score, precision_score, recall_score, specificity_score, f1_score
+from unet import UNet
+from utils import normalize_image, LIST_DATASET, pad_2d, dice_coefficient, iou_score, precision_score, recall_score, \
+    specificity_score, f1_score
 
 margin = 40
 Y_MAX = 256
@@ -24,141 +22,113 @@ def find_mask_path(image_path, LIST_DATASET):
     with open(LIST_DATASET, 'r') as file:
         for line in file:
             parts = line.strip().split()
-            if len(parts) > 2:
-                dataset_image_path_parts = normalize_and_split_path(parts[2])
-                if image_path_parts == dataset_image_path_parts:
-                    return os.path.normpath(parts[3])
+            if len(parts) > 2 and image_path_parts == normalize_and_split_path(parts[2]):
+                return os.path.normpath(parts[3])
     return None
 
 
 def load_single_image(image_path):
     mask_path = find_mask_path(image_path, LIST_DATASET)
-    if mask_path == None:
+    if mask_path is None:
         exit("No mask found")
-
     current_image = np.load(image_path)
+    current_image = normalize_image(current_image, np.min(current_image), np.max(current_image))
+    current_image = current_image / current_image.max() if current_image.max() > 1 else current_image
     current_mask = np.load(mask_path)
 
-    current_image = normalize_image(current_image, np.min(current_image), np.max(current_image))
-
-    if current_image.max() > 1:
-        current_image = current_image / current_image.max()
-
-    full_image = current_image
-
     arr = np.nonzero(current_mask)
+    minA, maxA, minB, maxB = min(arr[0]), max(arr[0]), min(arr[1]), max(arr[1])
+    cropped_image = pad_2d(current_image[max(minA - margin, 0): min(maxA + margin + 1, current_mask.shape[0]), \
+                           max(minB - margin, 0): min(maxB + margin + 1, current_mask.shape[1])], 0, X_MAX, Y_MAX)
 
-    width = current_mask.shape[0]
-    height = current_mask.shape[1]
-
-    minA = min(arr[0])
-    maxA = max(arr[0])
-    minB = min(arr[1])
-    maxB = max(arr[1])
-
-    cropped_image = current_image[max(minA - margin, 0): min(maxA + margin + 1, width), \
-                    max(minB - margin, 0): min(maxB + margin + 1, height)]
-
-    cropped_image = pad_2d(cropped_image, 0, X_MAX, Y_MAX)
-
-    return torch.tensor(cropped_image).unsqueeze(0), torch.tensor(current_mask).unsqueeze(0), torch.tensor(full_image).unsqueeze(0), minA, minB,
+    return torch.tensor(cropped_image).unsqueeze(0), torch.tensor(current_mask).unsqueeze(0), torch.tensor(
+        current_image).unsqueeze(0), minA, minB
 
 
-def predict_images(image_path, model_pancreas_path, model_tumor_path):
+def predict_images(image_path, unet_pancreas, unet_tumor, resnet_tumor, attention_tumor):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
     cropped_image, original_mask, original_image, minY, minX = load_single_image(image_path)
-    cropped_image = cropped_image.to(device, dtype=torch.float32, non_blocking=True).unsqueeze(1)
-    original_image = original_image.to(device, dtype=torch.float32, non_blocking=True)
-    original_mask = original_mask.to(device, dtype=torch.float32, non_blocking=True)
-
-    model_pancreas = UNet(1, 1).to(device)
-    model_pancreas.load_state_dict(torch.load(model_pancreas_path))
-    model_pancreas.eval()
-
-    model_tumor = UNet(1, 1).to(device)
-    model_tumor.load_state_dict(torch.load(model_tumor_path))
-    model_tumor.eval()
+    cropped_image, original_image, original_mask = [x.to(device, dtype=torch.float32, non_blocking=True).unsqueeze(1)
+                                                    for x in (cropped_image, original_image, original_mask)]
 
     with torch.no_grad():
-        outputs_pancreas = model_pancreas(cropped_image)
-        outputs_tumor = model_tumor(cropped_image)
+        outputs = {name: model(cropped_image) for name, model in zip(
+            ["pancreas", "unet_tumor", "resnet_tumor", "attention_tumor"],
+            [unet_pancreas, unet_tumor, resnet_tumor, attention_tumor]
+        )}
 
-    original_image_np = original_image.cpu().numpy().squeeze()
-    original_mask_np = original_image.cpu().numpy().squeeze()
-    cropped_image_np = cropped_image.cpu().numpy().squeeze()
-    outputs_pancreas_np = outputs_pancreas.detach().cpu().numpy().squeeze()
-    outputs_tumor_np = outputs_tumor.detach().cpu().numpy().squeeze()
+    def tensor_to_np(tensor):
+        return tensor.detach().cpu().numpy().squeeze()
 
+    outputs_np = {name: tensor_to_np(outputs[name]) for name in outputs}
+    original_image_np = tensor_to_np(original_image)
     top_left = (minX - margin, minY - margin)
-    h, w = cropped_image_np.shape
-    bottom_right = (top_left[0] + w, top_left[1] + h)
+    bottom_right = (top_left[0] + cropped_image.shape[-1], top_left[1] + cropped_image.shape[-2])
 
-    # Create full-size padded masks
-    padded_tumor_output = np.zeros_like(original_image_np)
-    padded_pancreas_output = np.zeros_like(original_image_np)
-    padded_tumor_output[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]] = outputs_tumor_np
-    padded_pancreas_output[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]] = outputs_pancreas_np
+    def create_padded_output(output):
+        padded_output = np.zeros_like(original_image_np)
+        padded_output[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]] = output
+        return padded_output
 
-    # Calculate metrics
-    dice_tumor = dice_coefficient(original_mask, torch.tensor(padded_tumor_output).to(device)).item()
-    iou_tumor = iou_score(original_mask, torch.tensor(padded_tumor_output).to(device))
-    precision_tumor = precision_score(original_mask, torch.tensor(padded_tumor_output).to(device)).item()
-    recall_tumor = recall_score(original_mask, torch.tensor(padded_tumor_output).to(device)).item()
-    specificity_tumor = specificity_score(original_mask, torch.tensor(padded_tumor_output).to(device)).item()
-    f1_tumor = f1_score(precision_tumor, recall_tumor)
-    accuracy_tumor = ((torch.tensor(padded_tumor_output).to(device).round() == original_mask).float().mean().item())
+    padded_outputs = {name: create_padded_output(outputs_np[name]) for name in outputs_np}
 
-    metrics_text = (
-        f"Tumor - Dice: {dice_tumor:.4f}\n"
-        f"IoU: {iou_tumor:.4f}\n"
-        f"Precision: {precision_tumor:.4f}\n"
-        f"Recall: {recall_tumor:.4f}\n"
-        f"Specificity: {specificity_tumor:.4f}\n"
-        f"F1: {f1_tumor:.4f}\n"
-        f"Accuracy: {accuracy_tumor:.4f}"
-    )
-    show_output(original_image_np, padded_pancreas_output, padded_tumor_output, metrics_text)
+    def calculate_metrics(output_name):
+        output_tensor = torch.tensor(padded_outputs[output_name]).to(device)
+        return {
+            "Dice": dice_coefficient(original_mask, output_tensor).item(),
+            "IoU": iou_score(original_mask, output_tensor),
+            "Precision": precision_score(original_mask, output_tensor).item(),
+            "Recall": recall_score(original_mask, output_tensor).item(),
+            "F1": f1_score(precision_score(original_mask, output_tensor).item(),
+                           recall_score(original_mask, output_tensor).item()),
+            "Accuracy": (output_tensor.round() == original_mask).float().mean().item()
+        }
+
+    metrics = {name: calculate_metrics(name) for name in ["unet_tumor", "resnet_tumor", "attention_tumor"]}
+
+    def format_metrics(metrics):
+        return "\n".join([f"{key}: {value:.4f}" for key, value in metrics.items()])
+
+    show_output(original_image_np, padded_outputs["pancreas"], padded_outputs["unet_tumor"],
+                padded_outputs["resnet_tumor"], padded_outputs["attention_tumor"],
+                format_metrics(metrics["unet_tumor"]), format_metrics(metrics["resnet_tumor"]),
+                format_metrics(metrics["attention_tumor"]))
 
 
-def show_output(original_image, padded_pancreas_output, padded_tumor_output, metrics_text):
-    overlay_rgb = np.stack([original_image] * 3, axis=-1)
-    red_mask = padded_pancreas_output > 0.5
-    blue_mask = padded_tumor_output > 0.5
+def show_output(original_image, padded_pancreas_output, padded_unet_tumor_output, padded_resnet_tumor_output,
+                padded_attention_tumor_output, unet_metrics_text, resnet_metrics_text, attention_metrics_text):
+    def create_overlay(image, pancreas_output, tumor_output):
+        overlay_rgb = np.stack([image] * 3, axis=-1)
+        overlay_rgb[pancreas_output > 0.5, 0] = 1
+        overlay_rgb[pancreas_output > 0.5, 1:] = 0
+        overlay_rgb[tumor_output > 0.5, :2] = 0
+        overlay_rgb[tumor_output > 0.5, 2] = 1
+        return overlay_rgb
 
-    # Set red channel where the pancreas mask is true
-    overlay_rgb[red_mask, 0] = 1  # Red
-    overlay_rgb[red_mask, 1:] = 0  # Remove green and blue
+    images = [
+        (padded_pancreas_output, padded_unet_tumor_output, 'CT image with U-Net tumor tumor', unet_metrics_text),
+        (padded_pancreas_output, padded_resnet_tumor_output, 'CT image with ResUNet tumor output', resnet_metrics_text),
+        (padded_pancreas_output, padded_attention_tumor_output, 'CT image with Attention U-Net tumor output',
+         attention_metrics_text)
+    ]
 
-    # Set blue channel where the tumor mask is true
-    overlay_rgb[blue_mask, 2] = 1  # Blue
-    overlay_rgb[blue_mask, :2] = 0  # Remove red and green
+    window = tk.Tk()
+    window.title('Images')
+    window.geometry("1600x800")
+    frame = tk.Frame(window)
+    frame.pack(fill=tk.BOTH, expand=True)
+    canvas = tk.Canvas(frame)
+    canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-    # Create a new Tkinter window
-    window = tk_interface.Tk()
-    window.title('Image')
+    for ax, (pancreas_output, tumor_output, title, metrics_text) in zip(axes, images):
+        overlay_rgb = create_overlay(original_image, pancreas_output, tumor_output)
+        ax.imshow(overlay_rgb)
+        ax.set_title(title)
+        ax.axis('off')
+        ax.text(0.5, -0.2, metrics_text, ha='center', va='top', transform=ax.transAxes, fontsize=10, wrap=True)
 
-    # Create a figure and axes
-    fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-    ax.imshow(overlay_rgb)
-    ax.set_title('CT image of a pancreatic tumor')
-
-    # Create a frame to hold the canvas and the color description
-    frame = tk_interface.Frame(window)
-    frame.pack(fill=tk_interface.BOTH, expand=True)
-
-    # Create a canvas to display the Matplotlib figure
-    canvas = FigureCanvasTkAgg(fig, master=frame)
-    canvas.draw()
-    canvas.get_tk_widget().pack(side=tk_interface.LEFT, fill=tk_interface.BOTH, expand=True)
-
-    # Create a label to display the color description
-    description_label = tk_interface.Label(frame, text="\nRoșu: Pancreas\nAlbastru: Tumoare\n\n" + metrics_text,
-                                           justify=tk_interface.LEFT, padx=10, pady=10)
-    description_label.pack(side=tk_interface.RIGHT, fill=tk_interface.BOTH, expand=True)
-
-    # Start the Tkinter main loop
+    canvas_agg = FigureCanvasTkAgg(fig, master=canvas)
+    canvas_agg.draw()
+    canvas_agg.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
     window.mainloop()
-
-
-

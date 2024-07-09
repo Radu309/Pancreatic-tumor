@@ -4,8 +4,12 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import torch
 
+from attention import AttentionUNet
 from predict_one import predict_images
+from resnet import ResUNet
+from unet import UNet
 from utils import normalize_image
 
 
@@ -92,8 +96,25 @@ class TumorSegmentationDisplay:
             next_button.pack(side=tk.LEFT, padx=5)
 
     def on_image_click(self, event, image_path):
-        print(image_path)
-        predict_images(image_path, MODEL_PANCREAS_PATH, MODEL_TUMOR_PATH)
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        unet_pancreas = UNet(1, 1).to(device)
+        unet_pancreas.load_state_dict(torch.load(MODEL_PANCREAS_PATH))
+        unet_pancreas.eval()
+
+        unet_tumor = UNet(1, 1).to(device)
+        unet_tumor.load_state_dict(torch.load(MODEL_UNET_TUMOR_PATH))
+        unet_tumor.eval()
+
+        resnet_tumor = ResUNet(1, 1).to(device)
+        resnet_tumor.load_state_dict(torch.load(MODEL_RESNET_TUMOR_PATH))
+        resnet_tumor.eval()
+
+        attention_tumor = AttentionUNet(1, 1).to(device)
+        attention_tumor.load_state_dict(torch.load(MODEL_ATTENTION_TUMOR_PATH))
+        attention_tumor.eval()
+
+
+        predict_images(image_path, unet_pancreas, unet_tumor, resnet_tumor, attention_tumor)
 
     def display_next_images(self):
         self.current_index += 10
@@ -106,7 +127,9 @@ class TumorSegmentationDisplay:
 
 if __name__ == "__main__":
     MODEL_PANCREAS_PATH = 'data/Pancreas_Segmentation/models/model_4_of_5_ep-50_lr-1e-05_bs-16_margin-20.pth'
-    MODEL_TUMOR_PATH = 'data/Pancreas_Tumor_Segmentation/models/model_4_of_5_ep-100_lr-1e-05_bs-2_margin-40.pth'
+    MODEL_UNET_TUMOR_PATH = 'data/Pancreas_Tumor_Segmentation/models/model_4_of_5_ep-100_lr-1e-05_bs-2_margin-40.pth'
+    MODEL_RESNET_TUMOR_PATH = 'data/Pancreas_Tumor_Segmentation/models/model_resnet_4_of_5_ep-100_lr-1e-05_bs-2_margin-40.pth'
+    MODEL_ATTENTION_TUMOR_PATH = 'data/Pancreas_Tumor_Segmentation/models/model_attention_4_of_5_ep-100_lr-1e-05_bs-4_margin-40.pth'
     IMAGES_PATH = "data/Pancreas_Tumor_Segmentation/dataset/images"
     root = tk.Tk()
     app = TumorSegmentationDisplay(root)
