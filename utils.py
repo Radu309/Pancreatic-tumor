@@ -7,8 +7,8 @@ import os
 import torch
 from sklearn.metrics import jaccard_score
 
+#Define the path to the dataset
 DATA_PATH = "data/Pancreas_Tumor_Segmentation"
-# DATA_PATH = "data/Pancreas_Tumor_Segmentation"
 
 # Define paths at the module level
 DATASET_PATH = os.path.join(DATA_PATH, 'dataset')

@@ -7,21 +7,17 @@ import subprocess
 from utils import MODELS_PATH
 
 # Parameters
-SLICE_TOTAL = 5                     # 4 OR 5;   4 = 75%;    5 = 80%
+SLICE_TOTAL = 5
 LOW_RANGE = -100
 HIGH_RANGE = 240
 MARGIN = 40
 Z_MAX = 160
-# Y_MAX = 286
-# X_MAX = 222
 Y_MAX = 256
 X_MAX = 192
 EPOCHS = 100
 BATCH_SIZE = 1
 LEARNING_RATE = 1e-5
-# LEARNING_RATE = 1e-5
 SMOOTH = 1e-4
-# SMOOTH = 1e-3
 MODEL_PATH = f'{MODELS_PATH}/model_{SLICE_TOTAL-1}_of_{SLICE_TOTAL}_ep-{EPOCHS}_lr-{LEARNING_RATE}_bs-{BATCH_SIZE}_margin-{MARGIN}.pth'
 MODEL_HR_PATH = f'{MODELS_PATH}/model_hrnet_{SLICE_TOTAL-1}_of_{SLICE_TOTAL}_ep-{EPOCHS}_lr-{LEARNING_RATE}_bs-{BATCH_SIZE}_margin-{MARGIN}.pth'
 MODEL_PANCREAS_PATH = 'data/Pancreas_Segmentation/models/model_4_of_5_ep-50_lr-1e-05_bs-16_margin-20.pth'
@@ -68,17 +64,10 @@ predict_cmd = [
     str(MODEL_PANCREAS_PATH), str(MODEL_TUMOR_PATH),
     str(MARGIN), str(Y_MAX), str(X_MAX),
 ]
-
-#   second model
-train_hr_cmd = [
-    python_cmd, "train_hrnet.py",
-    str(SLICE_TOTAL), str(EPOCHS), str(LEARNING_RATE),
-    str(SMOOTH), str(BATCH_SIZE), str(MARGIN)
-]
-test_hr_cmd = [
-    python_cmd, "test_hrnet.py",
-    str(SLICE_TOTAL), str(MODEL_HR_PATH),
-    str(SMOOTH), str(MARGIN)
+start_cmd = [
+    python_cmd, "start.py",
+    str(MODEL_PANCREAS_PATH), str(MODEL_TUMOR_PATH),
+    str(MARGIN), str(Y_MAX), str(X_MAX),
 ]
 # Select which command to run based on command line arguments
 if len(sys.argv) != 2:
@@ -89,31 +78,19 @@ command_to_run = sys.argv[1]
 
 # Run selected command
 if command_to_run == "convert":
-    print("Running data preprocessor...")
     subprocess.run(convert_cmd)
 elif command_to_run == "slice":
-    print("Running slice.py...")
     subprocess.run(slice_cmd)
 elif command_to_run == "data":
-    print("Running data.py...")
     subprocess.run(data_cmd)
 elif command_to_run == "train":
-    print("Running train.py...")
     subprocess.run(train_cmd)
 elif command_to_run == "test":
-    print("Running test.py...")
     subprocess.run(test_cmd)
 elif command_to_run == "predict":
-    print("Running predict.py...")
     subprocess.run(predict_cmd)
-    #
-elif command_to_run == "train_hrnet":
-    print("Running train_hrnet.py...")
-    subprocess.run(train_hr_cmd)
-elif command_to_run == "test_hrnet":
-    print("Running test_hrnet.py...")
-    subprocess.run(test_hr_cmd)
-
+elif command_to_run == "start":
+    subprocess.run(start_cmd)
 else:
     print("Invalid command:", command_to_run)
-    print("Available commands: convert, slice, data, train, test, predict")
+    print("Available commands: convert, slice, data, train, test, predict, start")

@@ -106,7 +106,7 @@ def show_output(original_image, padded_pancreas_output, padded_unet_tumor_output
         return overlay_rgb
 
     images = [
-        (padded_pancreas_output, padded_unet_tumor_output, 'CT image with U-Net tumor tumor', unet_metrics_text),
+        (padded_pancreas_output, padded_unet_tumor_output, 'CT image with U-Net tumor output', unet_metrics_text),
         (padded_pancreas_output, padded_resnet_tumor_output, 'CT image with ResUNet tumor output', resnet_metrics_text),
         (padded_pancreas_output, padded_attention_tumor_output, 'CT image with Attention U-Net tumor output',
          attention_metrics_text)

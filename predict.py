@@ -6,7 +6,6 @@ from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader, Dataset
 
 from resnet import ResUNet
-from hrnet import HRNet
 from unet import UNet
 
 import numpy as np
