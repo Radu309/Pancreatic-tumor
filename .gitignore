@@ -1,9 +1,5 @@
 *.pyc
-data/*
-data/Pancreas_Tumor_Segmentation/models
-data/Pancreas_Tumor_Segmentation/metrics
-data/Pancreas_Segmentation/models
-data/Pancreas_Segmentation/metrics
+data/
 __pycache__/
 checkpoints/
 *.pth
