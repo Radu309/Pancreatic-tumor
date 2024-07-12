@@ -6,7 +6,7 @@ import tkinter as tk
 import numpy as np
 from unet import UNet
 from utils import normalize_image, LIST_DATASET, pad_2d, dice_coefficient, iou_score, precision_score, recall_score, \
-    specificity_score, f1_score
+    f1_score
 
 margin = 40
 Y_MAX = 256
@@ -87,7 +87,8 @@ def predict_images(image_path, unet_pancreas, unet_tumor, resnet_tumor, attentio
     metrics = {name: calculate_metrics(name) for name in ["unet_tumor", "resnet_tumor", "attention_tumor"]}
 
     def format_metrics(metrics):
-        return "\n".join([f"{key}: {value:.4f}" for key, value in metrics.items()])
+        return ("Blue: The segmented area of the pancreas\n" + "Red: Segmented area with tumor\n" +
+                "\n".join([f"{key}: {value:.4f}" for key, value in metrics.items()]))
 
     show_output(original_image_np, padded_outputs["pancreas"], padded_outputs["unet_tumor"],
                 padded_outputs["resnet_tumor"], padded_outputs["attention_tumor"],
@@ -126,8 +127,9 @@ def show_output(original_image, padded_pancreas_output, padded_unet_tumor_output
         ax.imshow(overlay_rgb)
         ax.set_title(title)
         ax.axis('off')
-        ax.text(0.5, -0.2, metrics_text, ha='center', va='top', transform=ax.transAxes, fontsize=10, wrap=True)
+        ax.text(0.5, -0.15, metrics_text, ha='center', va='top', transform=ax.transAxes, fontsize=10, wrap=True)
 
+    plt.tight_layout(pad=1.0)  # Adjust the padding between and around subplots
     canvas_agg = FigureCanvasTkAgg(fig, master=canvas)
     canvas_agg.draw()
     canvas_agg.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)

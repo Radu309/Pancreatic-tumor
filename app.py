@@ -1,3 +1,4 @@
+import sys
 import tkinter as tk
 from tkinter import filedialog
 import numpy as np
@@ -49,15 +50,19 @@ class TumorSegmentationDisplay:
         self.display_images()
 
     def load_images(self):
+        selected_numbers = {7, 8, 9, 11, 13, 14, 16, 17, 20, 36, 39, 43, 46, 49, 51, 52, 55, 58, 59, 70}
         if IMAGES_PATH and os.path.isdir(IMAGES_PATH):
             for director, _, files in os.walk(IMAGES_PATH):
                 directory_name = os.path.basename(director)
                 for filename in files:
                     if filename.endswith('.npy'):
                         image_path = os.path.join(director, filename)
-                        image_array = np.load(image_path)
-                        image_normalized = normalize_image(image_array, np.min(image_array), np.max(image_array))
-                        self.images.append((image_normalized, directory_name, image_path))
+                        parts = os.path.normpath(image_path).split(os.sep)
+                        number = int(parts[4])
+                        if number in selected_numbers:
+                            image_array = np.load(image_path)
+                            image_normalized = normalize_image(image_array, np.min(image_array), np.max(image_array))
+                            self.images.append((image_normalized, directory_name, image_path))
 
     def display_images(self):
         for widget in self.scroll_frame.winfo_children():
@@ -66,6 +71,7 @@ class TumorSegmentationDisplay:
         max_images_per_row = self.images_per_row
         num_images = min(self.current_index + 10, len(self.images)) - self.current_index
         rows = (num_images + max_images_per_row - 1) // max_images_per_row
+        image_counter = self.current_index + 1
 
         for row in range(rows):
             for col in range(max_images_per_row):
@@ -74,13 +80,14 @@ class TumorSegmentationDisplay:
                     image, directory_name, image_path = self.images[idx]
                     fig, ax = plt.subplots(figsize=self.image_figsize)
                     ax.imshow(image, cmap='gray')
-                    ax.set_title(directory_name)
+                    ax.set_title(f"Image {image_counter:02d}")
                     ax.axis('off')
                     canvas = FigureCanvasTkAgg(fig, master=self.scroll_frame)
                     widget = canvas.get_tk_widget()
                     widget.grid(row=row, column=col, padx=self.margin // 2, pady=self.margin // 2)
                     widget.bind("<Button-1>", lambda e, path=image_path: self.on_image_click(e, path))
                     canvas.draw()
+                    image_counter += 1
 
         next_button_frame = tk.Frame(self.scroll_frame)
         next_button_frame.grid(row=rows, column=max_images_per_row-1, sticky='se', padx=10, pady=10)
@@ -98,7 +105,7 @@ class TumorSegmentationDisplay:
     def on_image_click(self, event, image_path):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         unet_pancreas = UNet(1, 1).to(device)
-        unet_pancreas.load_state_dict(torch.load(MODEL_PANCREAS_PATH))
+        unet_pancreas.load_state_dict(torch.load(MODEL_UNET_PANCREAS_PATH))
         unet_pancreas.eval()
 
         unet_tumor = UNet(1, 1).to(device)
@@ -126,11 +133,11 @@ class TumorSegmentationDisplay:
 
 
 if __name__ == "__main__":
-    MODEL_PANCREAS_PATH = 'data/Pancreas_Segmentation/models/model_4_of_5_ep-50_lr-1e-05_bs-16_margin-20.pth'
-    MODEL_UNET_TUMOR_PATH = 'data/Pancreas_Tumor_Segmentation/models/model_4_of_5_ep-100_lr-1e-05_bs-2_margin-40.pth'
-    MODEL_RESNET_TUMOR_PATH = 'data/Pancreas_Tumor_Segmentation/models/model_resnet_4_of_5_ep-100_lr-1e-05_bs-2_margin-40.pth'
-    MODEL_ATTENTION_TUMOR_PATH = 'data/Pancreas_Tumor_Segmentation/models/model_attention_4_of_5_ep-100_lr-1e-05_bs-4_margin-40.pth'
-    IMAGES_PATH = "data/Pancreas_Tumor_Segmentation/dataset/images"
+    MODEL_UNET_PANCREAS_PATH = sys.argv[1]
+    MODEL_UNET_TUMOR_PATH = sys.argv[2]
+    MODEL_RESNET_TUMOR_PATH = sys.argv[3]
+    MODEL_ATTENTION_TUMOR_PATH = sys.argv[4]
+    IMAGES_PATH = sys.argv[5]
     root = tk.Tk()
     app = TumorSegmentationDisplay(root)
     root.mainloop()

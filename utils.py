@@ -8,6 +8,7 @@ import torch
 from sklearn.metrics import jaccard_score
 
 #Define the path to the dataset
+# DATA_PATH = "data/Pancreas_Segmentation"
 DATA_PATH = "data/Pancreas_Tumor_Segmentation"
 
 # Define paths at the module level
@@ -25,10 +26,8 @@ MODELS_PATH = os.path.join(DATA_PATH, 'models')
 METRICS_PATH = os.path.join(DATA_PATH, 'metrics')
 PREDICTED_PATH = os.path.join(DATA_PATH, 'predicted')
 
-PREDICTED_ALL = os.path.join('predicted_all_attention')
-
 paths = [DATASET_PATH, IMAGE_PATH, MASK_PATH, IMAGE_NPY_PATH, MASK_NPY_PATH, DATALOADER_PATH,
-         LISTS_PATH, MODELS_PATH, METRICS_PATH, PREDICTED_PATH, PREDICTED_ALL]
+         LISTS_PATH, MODELS_PATH, METRICS_PATH, PREDICTED_PATH]
 for path in paths:
     if not os.path.exists(path):
         os.makedirs(path)

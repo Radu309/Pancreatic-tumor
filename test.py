@@ -5,12 +5,14 @@ import logging
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 from unet import UNet
+from resnet import ResUNet
+from attention import AttentionUNet
 from utils import dice_coefficient, iou_score, precision_score, PREDICTED_PATH, METRICS_PATH
 from data import load_test_data
 import matplotlib.pyplot as plt
-import torch.nn.functional as F
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -35,7 +37,7 @@ def save_image(image, mask, output, save_dir, idx):
     plt.close(fig)
 
 
-def test():
+def test(model_type_name, model_path, slice_total, margin, smooth):
     logging.info(f'\t\tStarting testing for slice file = 1_of_{slice_total}')
 
     # Load test data
@@ -45,7 +47,14 @@ def test():
 
     # Load the model
     logging.info('\t\tLoading the model...')
-    model = UNet(1, 1).to(device)
+    if model_type_name == 'UNet':
+        model = UNet(1, 1).to(device)
+    elif model_type_name == 'AttentionUNet':
+        model = AttentionUNet(1, 1).to(device)
+    elif model_type_name == 'ResUNet':
+        model = ResUNet(1, 1).to(device)
+    else:
+        raise ValueError(f'Unknown model name: {model_type_name}')
     model.load_state_dict(torch.load(model_path))
     model.eval()
 
@@ -100,14 +109,15 @@ def test():
 
 
 if __name__ == "__main__":
-    slice_total = int(sys.argv[1])
-    model_path = sys.argv[2]
-    smooth = float(sys.argv[3])
-    margin = sys.argv[4]
+    model_name = sys.argv[1]
+    slice_total = int(sys.argv[2])
+    model_path = sys.argv[3]
+    smooth = float(sys.argv[4])
+    margin = int(sys.argv[5])
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if torch.cuda.is_available():
-        test()
+        test(model_name, model_path, slice_total, margin, smooth)
         print("Testing done")
     else:
         print("Can't start on gpu")

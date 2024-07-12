@@ -5,11 +5,12 @@ import torch
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader, Dataset
 
+from attention import AttentionUNet
 from resnet import ResUNet
 from unet import UNet
 
 import numpy as np
-from utils import normalize_image, LIST_DATASET, pad_2d, PREDICTED_ALL
+from utils import normalize_image, LIST_DATASET, pad_2d
 
 
 class SliceDataset(Dataset):
@@ -88,7 +89,7 @@ def slice_data_loader(margin, Y_MAX, X_MAX):
     return SliceDataset(cropped_images, images, masks, list_min_A, list_min_B)
 
 
-def predict_images(model_pancreas_path, model_tumor_path, margin, Y_MAX, X_MAX):
+def predict_images(model_name, model_pancreas_path, model_tumor_path, margin, Y_MAX, X_MAX):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     test_dataset = slice_data_loader(margin, Y_MAX, X_MAX)
@@ -98,8 +99,14 @@ def predict_images(model_pancreas_path, model_tumor_path, margin, Y_MAX, X_MAX):
     model_pancreas.load_state_dict(torch.load(model_pancreas_path))
     model_pancreas.eval()
 
-    # model_tumor = UNet(1, 1).to(device)
-    model_tumor = ResUNet(1, 1).to(device)
+    if model_name == 'UNet':
+        model_tumor = UNet(1, 1).to(device)
+    elif model_name == 'AttentionUNet':
+        model_tumor = AttentionUNet(1, 1).to(device)
+    elif model_name == 'ResUNet':
+        model_tumor = ResUNet(1, 1).to(device)
+    else:
+        raise ValueError(f'Unknown model name: {model_name}')
     model_tumor.load_state_dict(torch.load(model_tumor_path))
     model_tumor.eval()
 
@@ -180,10 +187,15 @@ def save_output(original_image, padded_pancreas_output, padded_tumor_output, mas
 
 
 if __name__ == "__main__":
-    model_pancreas_path = sys.argv[1]
-    model_tumor_path = sys.argv[2]
-    margin = 40
-    Y_MAX = int(sys.argv[4])
-    X_MAX = int(sys.argv[5])
-    predict_images(model_pancreas_path, model_tumor_path, margin, Y_MAX, X_MAX)
+
+    model_name = sys.argv[1]
+    model_pancreas_path = sys.argv[2]
+    model_tumor_path = sys.argv[3]
+    margin = int(sys.argv[4])
+    Y_MAX = int(sys.argv[5])
+    X_MAX = int(sys.argv[6])
+    PREDICTED_ALL = f'predicted_all_{model_name}'
+    os.makedirs(PREDICTED_ALL, exist_ok=True)
+    predict_images(model_name, model_pancreas_path, model_tumor_path, margin, Y_MAX, X_MAX)
+
     print("\t\tEnd predict")
