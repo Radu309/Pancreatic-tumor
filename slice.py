@@ -75,8 +75,8 @@ def slice_data():
                 mask_ = mask
 
             # # threshold image to specified range
-            # image_[image_ < low_range] = low_range
-            # image_[image_ > high_range] = high_range
+            image_[image_ < low_range] = low_range
+            image_[image_ > high_range] = high_range
 
             # compute the mean value of the slice
             average[j] = float(image_.sum()) / (image_.shape[0] * image_.shape[1])

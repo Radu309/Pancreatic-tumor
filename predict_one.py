@@ -87,7 +87,7 @@ def predict_images(image_path, unet_pancreas, unet_tumor, resnet_tumor, attentio
     metrics = {name: calculate_metrics(name) for name in ["unet_tumor", "resnet_tumor", "attention_tumor"]}
 
     def format_metrics(metrics):
-        return ("Blue: The segmented area of the pancreas\n" + "Red: Segmented area with tumor\n" +
+        return ("Roșu: Zona segmentată a pancreasului\n" + "Albastru: Zona segmentată cu tumoare\n" +
                 "\n".join([f"{key}: {value:.4f}" for key, value in metrics.items()]))
 
     show_output(original_image_np, padded_outputs["pancreas"], padded_outputs["unet_tumor"],
@@ -107,9 +107,9 @@ def show_output(original_image, padded_pancreas_output, padded_unet_tumor_output
         return overlay_rgb
 
     images = [
-        (padded_pancreas_output, padded_unet_tumor_output, 'CT image with U-Net tumor output', unet_metrics_text),
-        (padded_pancreas_output, padded_resnet_tumor_output, 'CT image with ResUNet tumor output', resnet_metrics_text),
-        (padded_pancreas_output, padded_attention_tumor_output, 'CT image with Attention U-Net tumor output',
+        (padded_pancreas_output, padded_unet_tumor_output, 'Imagine CT segmentată folosind U-Net', unet_metrics_text),
+        (padded_pancreas_output, padded_resnet_tumor_output, 'Imagine CT segmentată folosind ResUNet', resnet_metrics_text),
+        (padded_pancreas_output, padded_attention_tumor_output, 'Imagine CT segmentată folosind Attention U-Net',
          attention_metrics_text)
     ]
 

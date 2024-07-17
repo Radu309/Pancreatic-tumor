@@ -49,8 +49,10 @@ class TumorSegmentationDisplay:
         self.load_images()
         self.display_images()
 
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
     def load_images(self):
-        selected_numbers = {7, 8, 9, 11, 13, 14, 16, 17, 20, 36, 39, 43, 46, 49, 51, 52, 55, 58, 59, 70}
+        selected_numbers = {7, 9, 11, 13, 14, 16, 17, 20, 36, 39, 43, 46, 49, 52, 59, 70}
         if IMAGES_PATH and os.path.isdir(IMAGES_PATH):
             for director, _, files in os.walk(IMAGES_PATH):
                 directory_name = os.path.basename(director)
@@ -123,6 +125,10 @@ class TumorSegmentationDisplay:
 
         predict_images(image_path, unet_pancreas, unet_tumor, resnet_tumor, attention_tumor)
 
+    def on_closing(self):
+        self.root.destroy()
+        sys.exit()
+
     def display_next_images(self):
         self.current_index += 10
         self.display_images()
@@ -130,6 +136,8 @@ class TumorSegmentationDisplay:
     def display_previous_images(self):
         self.current_index -= 10
         self.display_images()
+
+
 
 
 if __name__ == "__main__":
