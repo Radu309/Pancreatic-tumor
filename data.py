@@ -90,8 +90,8 @@ def create_data(data_type):
         cropped_mask = current_mask[max(minA - margin, 0): min(maxA + margin + 1, width), \
                        max(minB - margin, 0): min(maxB + margin + 1, height)]
 
-        images_list_normalized[i] = pad_2d(cropped_image, 0, X_MAX, Y_MAX)
-        masks_list_normalized[i] = pad_2d(cropped_mask, 0, X_MAX, Y_MAX)
+        images_list_normalized[i] = cropped_image
+        masks_list_normalized[i] = cropped_mask
 
         if i % 100 == 0:
             print(f'Done: {i}/{total} slices')
