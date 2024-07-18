@@ -52,7 +52,7 @@ class TumorSegmentationDisplay:
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def load_images(self):
-        selected_numbers = {7, 9, 11, 13, 14, 16, 17, 20, 36, 39, 43, 46, 49, 52, 59, 70}
+        # selected_numbers = {7, 9, 11, 13, 14, 16, 17, 20, 36, 39, 43, 46, 49, 52, 59, 70}
         if IMAGES_PATH and os.path.isdir(IMAGES_PATH):
             for director, _, files in os.walk(IMAGES_PATH):
                 directory_name = os.path.basename(director)
@@ -61,10 +61,10 @@ class TumorSegmentationDisplay:
                         image_path = os.path.join(director, filename)
                         parts = os.path.normpath(image_path).split(os.sep)
                         number = int(parts[4])
-                        if number in selected_numbers:
-                            image_array = np.load(image_path)
-                            image_normalized = normalize_image(image_array, np.min(image_array), np.max(image_array))
-                            self.images.append((image_normalized, directory_name, image_path))
+                        # if number in selected_numbers:
+                        image_array = np.load(image_path)
+                        image_normalized = normalize_image(image_array, np.min(image_array), np.max(image_array))
+                        self.images.append((image_normalized, directory_name, image_path))
 
     def display_images(self):
         for widget in self.scroll_frame.winfo_children():
